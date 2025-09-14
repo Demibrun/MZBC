@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import "dotenv/config";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { dbConnect } from "../src/lib/db";
 import { User, SiteSettings, Leader, Service } from "../src/lib/models";
 
