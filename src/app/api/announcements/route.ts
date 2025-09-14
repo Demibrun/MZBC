@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from "next/server";
 import { dbConnect } from "../../../lib/db";
 import { Announcement } from "../../../lib/models";
