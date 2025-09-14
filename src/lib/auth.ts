@@ -4,6 +4,8 @@ import bcrypt from "bcrypt";
 import { dbConnect } from "../lib/db";
 import { User } from "../lib/models";
 
+
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   providers: [
