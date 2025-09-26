@@ -1,33 +1,43 @@
+// src/app/api/home/sermon/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
 import { SiteSettings } from "@/lib/models";
-import { requireAdmin } from "@/lib/admin";
 
+// tiny helper: cookie-based admin gate
+function isAdmin(req: NextRequest) {
+  // our login sets this cookie to "1"
+  return req.cookies.get("mz_admin")?.value === "1";
+}
+
+// GET: return current hero headline/sub
 export async function GET() {
   await dbConnect();
-  const s: any = await (SiteSettings as any).findOne().lean();
+  const doc =
+    (await SiteSettings.findOne().lean()) ||
+    (await SiteSettings.create({})).toObject();
+
   return NextResponse.json({
-    heroHeadline: s?.heroHeadline ?? "",
-    heroSub: s?.heroSub ?? "",
+    heroHeadline: doc.heroHeadline || "",
+    heroSub: doc.heroSub || "",
   });
 }
 
+// PUT: admin only — update hero headline/sub
 export async function PUT(req: NextRequest) {
-  const guard = requireAdmin(req);
-  if (guard) return guard;
+  if (!isAdmin(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   await dbConnect();
-  const body = await req.json().catch(() => ({} as any));
+  const { heroHeadline, heroSub } = await req.json();
 
-  const heroHeadline =
-    typeof body?.heroHeadline === "string" ? body.heroHeadline : "";
-  const heroSub = typeof body?.heroSub === "string" ? body.heroSub : "";
+  const doc =
+    (await SiteSettings.findOne()) || (await SiteSettings.create({}));
 
-  await (SiteSettings as any).updateOne(
-    {},
-    { $set: { heroHeadline, heroSub } },
-    { upsert: true }
-  );
+  if (typeof heroHeadline === "string") doc.heroHeadline = heroHeadline;
+  if (typeof heroSub === "string") doc.heroSub = heroSub;
+
+  await doc.save();
 
   return NextResponse.json({ ok: true });
 }
