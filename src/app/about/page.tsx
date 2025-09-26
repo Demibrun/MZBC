@@ -1,22 +1,6 @@
 // src/app/about/page.tsx
-export const dynamic = "force-dynamic";
-
 import { dbConnect } from "@/lib/db";
 import { MinistryGroup } from "@/lib/models";
-
-/**
- * About page
- * - Pulls specific ministry groups by key
- * - Uses .lean().exec() to avoid Mongoose TS signature issues in builds
- */
-
-const KEYS = [
-  { key: "women",     title: "Gracious Zion Women" },
-  { key: "beacons",   title: "Zion Covenant Beacons" },
-  { key: "men",       title: "Zion Men of Valour" },
-  { key: "heritage",  title: "Zion Heritage" },
-  { key: "champions", title: "Zion Divine Champions" },
-] as const;
 
 type GroupDoc = {
   _id?: string;
@@ -26,59 +10,55 @@ type GroupDoc = {
   body?: string;
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function AboutPage() {
   await dbConnect();
 
-  const wantedKeys = KEYS.map(k => k.key);
-  // ✅ Use .lean().exec() so Vercel/TS stops complaining
-  const docs = (await MinistryGroup
-    .find({ key: { $in: wantedKeys } })
+  const keys = [
+    { key: "women", title: "Women of Zion" },
+    { key: "beacons", title: "Beacons" },
+    { key: "men", title: "Men of Valor" },
+    { key: "heritage", title: "Heritage (Children)" },
+    { key: "champions", title: "Champions (Teens/Youth)" },
+  ] as const;
+
+  const wantedKeys = keys.map((k) => k.key);
+
+  // ✅ Use .lean().exec() and cast to our local type
+  const docs = (await MinistryGroup.find({ key: { $in: wantedKeys } })
     .lean()
     .exec()) as GroupDoc[];
 
-  const byKey: Record<string, GroupDoc | undefined> =
-    Object.fromEntries(docs.map(d => [d.key, d]));
+  const byKey = Object.fromEntries(docs.map((d) => [d.key, d]));
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 grid gap-8">
+    <main className="max-w-6xl mx-auto px-4 py-10 grid gap-8">
       <header>
-        <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--mz-deep-blue)]">
-          About Us
-        </h1>
-        <p className="mt-1 text-[var(--mz-dark)]/70">
-          Learn about our ministries and family groups in Mount Zion.
+        <h1 className="text-2xl font-bold">About</h1>
+        <p className="text-sm text-gray-600">
+          Learn more about the sub-ministries at Mount Zion Bible Church.
         </p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {KEYS.map(({ key, title }) => {
-          const g = byKey[key];
+        {keys.map((k) => {
+          const g = byKey[k.key] as GroupDoc | undefined;
           return (
-            <section
-              key={key}
-              className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm"
-            >
-              <div className="flex items-start gap-4">
-                {g?.photoUrl ? (
-                  <img
-                    src={g.photoUrl}
-                    alt={g.title || title}
-                    className="h-24 w-24 flex-none rounded-lg object-cover"
-                  />
-                ) : (
-                  <div className="h-24 w-24 flex-none rounded-lg bg-black/5 grid place-items-center text-sm text-black/40">
-                    No Image
-                  </div>
-                )}
-                <div>
-                  <h2 className="text-xl font-bold text-[var(--mz-deep-blue)]">
-                    {g?.title || title}
-                  </h2>
-                  <p className="mt-2 text-sm text-[var(--mz-dark)]/80 whitespace-pre-wrap">
-                    {g?.body || "Details will appear here when available."}
-                  </p>
-                </div>
-              </div>
+            <section key={k.key} className="border rounded-lg p-4 bg-white">
+              <h2 className="text-xl font-semibold">
+                {g?.title || k.title}
+              </h2>
+              {g?.photoUrl && (
+                <img
+                  src={g.photoUrl}
+                  alt={g.title || k.title}
+                  className="mt-3 h-44 w-full object-cover rounded"
+                />
+              )}
+              <p className="mt-3 whitespace-pre-wrap">
+                {g?.body || "Details coming soon."}
+              </p>
             </section>
           );
         })}

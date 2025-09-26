@@ -1,8 +1,10 @@
 // src/app/api/auth/logout/route.ts
-import { clearAdminCookie } from "../../_utils";
-
 export const dynamic = "force-dynamic";
 
+import { NextResponse } from "next/server";
+import { clearAdminCookie } from "../../_utils";
+
 export async function POST() {
-  return clearAdminCookie();
+  clearAdminCookie();
+  return NextResponse.json({ ok: true });
 }
