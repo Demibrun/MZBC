@@ -1,49 +1,32 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { dbConnect } from "../lib/db";
-import { User } from "../lib/models";
+// src/lib/auth.ts
+import { cookies } from "next/headers";
+
+export const ADMIN_COOKIE = "mzbc_admin";
 
 
+export function isAdmin(): boolean {
+  const pass = process.env.ADMIN_PASSWORD || "mzbcwebsite";
+  const c = cookies().get("mzbc_admin")?.value;
+  return c === pass;
+}
 
-export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt" },
-  providers: [
-    Credentials({
-      name: "Email & Password",
-      credentials: {
-        email: { label: "Email" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(creds) {
-        await dbConnect();
-        const email = String(creds?.email || "");
-        const password = String(creds?.password || "");
-        const user = await User.findOne({ email });
-        if (!user) return null;
-        const ok = await bcrypt.compare(password, user.passwordHash);
-        if (!ok) return null;
-        return {
-          id: String(user._id),
-          email: user.email,
-          name: user.name,
-          role: user.role
-        } as any;
-      }
-    })
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) token.role = (user as any).role;
-      return token;
-    },
-    async session({ session, token }) {
-      (session as any).role = (token as any).role;
-      return session;
-    }
-  },
-  secret: process.env.NEXTAUTH_SECRET
+
+export function assertAdmin() {
+  if (!isAdmin()) {
+    const err = new Error("Unauthorized");
+    (err as any).status = 401;
+    throw err;
+  }
+}
+
+export const ADMIN_COOKIE_OPTIONS = {
+  httpOnly: true as const,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
 };
 
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+export function verifyAdminPassword(pass: string) {
+  const target = process.env.ADMIN_PASSWORD || "mzbcwebsite";
+  return pass === target;
+}

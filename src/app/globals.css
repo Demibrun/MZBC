@@ -2,18 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
-:root{
-  --mz-primary-blue:#1e6de3;
-  --mz-deep-blue:#0b3b8c;
-  --mz-gold:#f1c14b;
-  --mz-green:#4a9b6b;
-  --mz-dark:#111827;
-  --mz-light:#f8fafc;
+/* Your custom variables */
+:root {
+  --mz-primary-blue: #0b3b8c;
+  --mz-deep-blue: #003366;
+  --mz-gold: #f1c14b;
+  --mz-sky-blue: #36a3ff;
+  --shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
 
-body{ @apply bg-[var(--mz-light)] text-[var(--mz-dark)]; }
-.gradient-hero{ background: radial-gradient(80% 60% at 50% 0%, rgba(30,109,227,.15), rgba(11,59,140,.05) 40%, transparent 70%), linear-gradient(180deg,#fff,#f6f9ff); }
-.card{ @apply rounded-2xl shadow-sm bg-white border border-black/5; }
-.btn{ @apply inline-flex items-center justify-center rounded-xl px-5 py-2 font-medium transition; }
-.btn-primary{ @apply btn text-white; background: var(--mz-primary-blue); }
-.btn-outline{ @apply btn border border-black/10; }
+/* Example base styles */
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+/* Now you can safely use @layer */
+@layer components {
+  .btn-primary {
+    @apply text-white px-4 py-2 rounded-xl;
+    background-color: var(--mz-primary-blue);
+    box-shadow: var(--shadow);
+  }
+  .btn-primary:hover {
+    background-color: #1658bd;
+  }
+
+  .btn-gold {
+    color: #0b3b8c;
+    background-color: var(--mz-gold);
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
+    background-color: color-mix(in srgb, var(--mz-sky-blue) 15%, transparent);
+    color: var(--mz-deep-blue);
+  }
+
+  .h1 {
+    @apply text-4xl md:text-5xl font-extrabold;
+    color: var(--mz-deep-blue);
+  }
+}
+
+  .h2{
+    @apply text-3xl font-bold;
+    color: var(--mz-deep-blue);
+  }
+
+
+/* Hero gradient and other classes can stay as before */
+.gradient-hero{
+  background:
+    radial-gradient(60% 60% at 70% 10%, rgba(241,193,75,.18) 0%, transparent 60%),
+    radial-gradient(80% 80% at -10% 10%, rgba(54,163,255,.20) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(14,98,198,.06) 0%, transparent 60%);
+}
+
+.frame-16x9{ @apply relative w-full overflow-hidden bg-white/40 rounded-t-2xl; }
+.frame-16x9 > img{ @apply h-full w-full object-cover; aspect-ratio: 16/9; }
+
+.loader-full{ @apply fixed inset-0 z-[9999] grid place-items-center bg-white; }
+.logo-breathe{
+  animation: breathe 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 8px 20px rgba(241,193,75,.35));
+}
+@keyframes breathe{
+  0%,100%{ transform: scale(1); opacity:.95; }
+  50%{ transform: scale(1.07); opacity:1; }
+}

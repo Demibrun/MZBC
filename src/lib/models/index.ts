@@ -1,0 +1,1 @@
+export { PrayerPoint } from "./prayerPoint";

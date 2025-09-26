@@ -3,22 +3,28 @@ import mongoose from "mongoose";
 
 declare global {
   // eslint-disable-next-line no-var
-  var _mongoose: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null } | undefined;
+  var __mongooseConn: Promise<typeof mongoose> | null;
 }
 
-export async function dbConnect() {
-  if (global._mongoose?.conn) return global._mongoose.conn;
-  if (!global._mongoose) global._mongoose = { conn: null, promise: null };
+const uri = process.env.MONGODB_URI;
 
-  // ⬇️ Read env INSIDE the function (runtime), not at import
-  const uri = process.env.MONGODB_URI;
+export async function dbConnect() {
   if (!uri) {
     throw new Error("MONGODB_URI is not set");
   }
-
-  if (!global._mongoose.promise) {
-    global._mongoose.promise = mongoose.connect(uri, { dbName: "mzpmi" }).then((m) => m);
+  if (!global.__mongooseConn) {
+    // optional: quiet strictQuery warnings
+    mongoose.set("strictQuery", false);
+    global.__mongooseConn = mongoose
+      .connect(uri, {
+        // keep defaults sane; SRV string already sets appName, retryWrites, etc.
+        maxPoolSize: 10,
+      })
+      .catch((err) => {
+        // reset cache so next call can retry after you fix env
+        global.__mongooseConn = null;
+        throw err;
+      });
   }
-  global._mongoose.conn = await global._mongoose.promise;
-  return global._mongoose.conn;
+  return global.__mongooseConn;
 }
