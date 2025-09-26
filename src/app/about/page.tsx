@@ -21,16 +21,16 @@ export default async function AboutPage() {
     { key: "beacons", title: "Beacons" },
     { key: "men", title: "Men of Valor" },
     { key: "heritage", title: "Heritage (Children)" },
-    { key: "champions", title: "Champions" },
+    { key: "champions", title: "Champions (Teens/Youth)" },
   ] as const;
 
   const wantedKeys = groupsMeta.map((k) => k.key);
 
-  // 👇 Cast model to break TS overload union so .find().lean().exec() is callable
+  // 👇 Cast through unknown first to silence TS "not callable"/"missing key" complaints
   const docs = (await (MinistryGroup as unknown as mongoose.Model<any>)
     .find({ key: { $in: wantedKeys } })
     .lean()
-    .exec()) as GroupDoc[];
+    .exec()) as unknown as GroupDoc[];
 
   const byKey = Object.fromEntries(docs.map((d) => [d.key, d]));
 
