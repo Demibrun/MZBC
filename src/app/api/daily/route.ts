@@ -2,113 +2,102 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
 import { DailySection } from "@/lib/models";
-import { requireAdmin } from "../_utils"; // keep whatever you already use
+import { requireAdmin } from "@/lib/admin";
 
-type DailyItem = {
-  _id?: any;
-  date?: string;
-  title: string;
-  subtitle?: string;
-  text: string;
-};
+export const dynamic = "force-dynamic";
 
-type DailyDoc = {
-  key: "wordOfDay" | "prophetic" | "sundaySchool" | "devotional" | "homecare";
-  items: DailyItem[];
-};
-
-/* ------------------------- GET ------------------------- */
+/**
+ * GET:
+ *  - /api/daily?section=wordOfDay -> single section (up to 50 items)
+ *  - /api/daily                   -> all sections
+ */
 export async function GET(req: NextRequest) {
   await dbConnect();
 
   const { searchParams } = new URL(req.url);
-  const section = searchParams.get("section") as DailyDoc["key"] | null;
+  const section = searchParams.get("section");
 
   if (section) {
-    const doc = await DailySection
-      .findOne({ key: section })
-      .lean<DailyDoc | null>();
-
+    const doc: any = (await DailySection.findOne({ key: section }).lean()) || null;
     return NextResponse.json({
-      section: { key: section, items: doc?.items ?? [] },
+      section: {
+        key: section,
+        items: Array.isArray(doc?.items) ? doc.items.slice(0, 50) : [],
+      },
     });
   }
 
-  // all sections (public page)
-  const keys: DailyDoc["key"][] = [
-    "wordOfDay",
-    "prophetic",
-    "sundaySchool",
-    "devotional",
-    "homecare",
-  ];
+  const keys = ["wordOfDay", "prophetic", "sundaySchool", "devotional", "homecare"] as const;
+  const out: Record<string, any> = {};
 
-  const out: Record<string, { key: string; items: DailyItem[] }> = {};
   for (const k of keys) {
-    const doc = await DailySection
-      .findOne({ key: k })
-      .lean<DailyDoc | null>();
-
-    out[k] = { key: k, items: (doc?.items ?? []).slice(0, 50) };
+    const doc: any = await DailySection.findOne({ key: k }).lean();
+    out[k] = { key: k, items: Array.isArray(doc?.items) ? doc.items.slice(0, 50) : [] };
   }
 
   return NextResponse.json({ sections: out });
 }
 
-/* ------------------------- POST (admin) ------------------------- */
-// body: { section, entry: { date?, title, subtitle?, text } }
+/**
+ * POST (admin):
+ * body: { section, entry: { date?, title, subtitle?, text } }
+ */
 export async function POST(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
+
   await dbConnect();
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
-  const { section, entry } = await req.json();
+  const body = await req.json().catch(() => null);
+  const section = body?.section as
+    | "wordOfDay" | "prophetic" | "sundaySchool" | "devotional" | "homecare";
+  const entry = body?.entry as { date?: string; title?: string; subtitle?: string; text?: string } | undefined;
+
   if (!section || !entry?.title || !entry?.text) {
-    return NextResponse.json(
-      { error: "Section, title and text are required" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Title and text are required" }, { status: 400 });
   }
 
-  const doc =
+  const doc: any =
     (await DailySection.findOne({ key: section })) ||
-    (await DailySection.create({ key: section, items: [] }));
+    new (DailySection as any)({ key: section, items: [] });
 
-  doc.items.unshift({
-    date: entry.date,
-    title: entry.title,
-    subtitle: entry.subtitle,
-    text: entry.text,
-  } as DailyItem);
+  const newItem = {
+    date: entry.date || null,
+    title: entry.title!,
+    subtitle: entry.subtitle || null,
+    text: entry.text!,
+  };
 
+  doc.items = [newItem, ...(Array.isArray(doc.items) ? doc.items : [])].slice(0, 500);
   await doc.save();
+
   return NextResponse.json({ ok: true });
 }
 
-/* ------------------------- DELETE (admin) ------------------------- */
-// /api/daily?section=wordOfDay&id=xxxxx
+/**
+ * DELETE (admin):
+ * /api/daily?section=wordOfDay&id=<item_id>
+ */
 export async function DELETE(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
+
   await dbConnect();
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   const { searchParams } = new URL(req.url);
-  const section = searchParams.get("section") as DailyDoc["key"] | null;
+  const section = searchParams.get("section");
   const id = searchParams.get("id");
 
   if (!section || !id) {
-    return NextResponse.json(
-      { error: "section and id are required" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing section or id" }, { status: 400 });
   }
 
-  const doc = await DailySection.findOne({ key: section });
+  const doc: any = await DailySection.findOne({ key: section });
   if (!doc) return NextResponse.json({ ok: true });
 
-  doc.items = (doc.items || []).filter((x: any) => String(x._id) !== String(id));
+  doc.items = (Array.isArray(doc.items) ? doc.items : []).filter(
+    (x: any) => String(x?._id) !== String(id)
+  );
   await doc.save();
 
   return NextResponse.json({ ok: true });

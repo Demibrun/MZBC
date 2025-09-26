@@ -1,6 +1,7 @@
 // src/lib/models.ts
 import mongoose, { Schema, model, models } from "mongoose";
 
+
 /** ===== Existing models you already had ===== */
 const UserSchema = new Schema({
   email: { type: String, unique: true },

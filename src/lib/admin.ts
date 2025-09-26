@@ -1,26 +1,47 @@
 // src/lib/admin.ts
-export const ADMIN_COOKIE = "mzbc_admin";
+import { NextRequest, NextResponse } from "next/server";
 
-export function parseCookieString(cookieHeader: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!cookieHeader) return out;
-  const pairs = cookieHeader.split(/;\s*/);
-  for (const pair of pairs) {
-    const eq = pair.indexOf("=");
-    if (eq === -1) continue;
-    const key = decodeURIComponent(pair.slice(0, eq).trim());
-    const val = decodeURIComponent(pair.slice(eq + 1).trim());
-    if (key) out[key] = val;
+const COOKIE_NAME = "mz_admin";
+
+/** true if the admin cookie is present */
+export function isAuthed(req: NextRequest) {
+  return req.cookies.get(COOKIE_NAME)?.value === "1";
+}
+
+/** If not admin, return 401 response, otherwise return null. Use at the top of admin routes. */
+export function requireAdmin(req: NextRequest) {
+  if (!isAuthed(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return out;
+  return null;
 }
 
-export function getClientCookie(name: string): string | undefined {
-  if (typeof document === "undefined") return undefined;
-  const all = parseCookieString(document.cookie || "");
-  return all[name];
+/** Create the admin cookie */
+export function setAdminCookie(): NextResponse {
+  const res = NextResponse.json({ ok: true });
+  res.cookies.set({
+    name: COOKIE_NAME,
+    value: "1",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 8, // 8h
+  });
+  return res;
 }
 
-export function isAdminClient(): boolean {
-  return getClientCookie(ADMIN_COOKIE) === "1";
+/** Clear the admin cookie */
+export function clearAdminCookie(): NextResponse {
+  const res = NextResponse.json({ ok: true });
+  res.cookies.set({
+    name: COOKIE_NAME,
+    value: "",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
+  return res;
 }

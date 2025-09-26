@@ -1,20 +1,14 @@
-import { NextResponse } from "next/server";
-import {
-  ADMIN_COOKIE,
-  ADMIN_COOKIE_OPTIONS,
-  verifyAdminPassword,
-} from "@/lib/auth";
+// src/app/api/auth/login/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { setAdminCookie } from "@/lib/admin";
 
-export async function POST(req: Request) {
-  try {
-    const { password } = await req.json();
-    if (!verifyAdminPassword(password || "")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const res = NextResponse.json({ ok: true });
-    res.cookies.set(ADMIN_COOKIE, "1", ADMIN_COOKIE_OPTIONS);
-    return res;
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Bad Request" }, { status: 400 });
+const PASSWORD = process.env.ADMIN_PASSWORD ?? "mzbcwebsite";
+
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const password = String(body?.password || "");
+  if (password !== PASSWORD) {
+    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
   }
+  return setAdminCookie();
 }

@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/auth";
+// src/app/api/auth/check/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { isAuthed } from "@/lib/admin";
 
-export async function GET() {
-  if (!isAdmin()) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+export async function GET(req: NextRequest) {
+  if (!isAuthed(req)) {
+    return NextResponse.json({ authed: false }, { status: 401 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ authed: true });
 }
