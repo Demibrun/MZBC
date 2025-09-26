@@ -1,43 +1,45 @@
 // src/app/api/home/sermon/route.ts
-import { NextRequest, NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import mongoose, { Schema, models } from "mongoose";
 import { dbConnect } from "@/lib/db";
-import { SiteSettings } from "@/lib/models";
+import { requireAdmin } from "../../_utils";
 
-// tiny helper: cookie-based admin gate
-function isAdmin(req: NextRequest) {
-  // our login sets this cookie to "1"
-  return req.cookies.get("mz_admin")?.value === "1";
-}
+const Sermon =
+  models.Sermon ||
+  mongoose.model(
+    "Sermon",
+    new Schema(
+      {
+        heroHeadline: { type: String, default: "" },
+        heroSub: { type: String, default: "" },
+      },
+      { timestamps: true }
+    )
+  );
 
-// GET: return current hero headline/sub
+// GET: read current hero
 export async function GET() {
   await dbConnect();
-  const doc =
-    (await SiteSettings.findOne().lean()) ||
-    (await SiteSettings.create({})).toObject();
-
-  return NextResponse.json({
-    heroHeadline: doc.heroHeadline || "",
-    heroSub: doc.heroSub || "",
-  });
+  const doc = await Sermon.findOne({}).lean().exec();
+  return NextResponse.json({ item: doc || { heroHeadline: "", heroSub: "" } });
 }
 
-// PUT: admin only — update hero headline/sub
-export async function PUT(req: NextRequest) {
-  if (!isAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+// PUT: admin-only upsert hero
+export async function PUT(req: Request) {
+  const notAdmin = await requireAdmin();
+  if (notAdmin) return notAdmin;
 
   await dbConnect();
-  const { heroHeadline, heroSub } = await req.json();
+  const body = await req.json();
+  const { heroHeadline = "", heroSub = "" } = body || {};
 
-  const doc =
-    (await SiteSettings.findOne()) || (await SiteSettings.create({}));
-
-  if (typeof heroHeadline === "string") doc.heroHeadline = heroHeadline;
-  if (typeof heroSub === "string") doc.heroSub = heroSub;
-
-  await doc.save();
+  await Sermon.updateOne(
+    {},
+    { $set: { heroHeadline, heroSub } },
+    { upsert: true }
+  ).exec();
 
   return NextResponse.json({ ok: true });
 }

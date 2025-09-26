@@ -1,78 +1,60 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
-import { MediaItem } from "@/lib/models";
+import { Media } from "@/models/Media";
+import { requireAdmin } from "@/app/api/_utils";
 
-/* --- permissive admin cookie check (same style as other routes) --- */
-function isAdmin(req: NextRequest) {
-  const c = req.cookies;
-  const v =
-    c.get("adm")?.value ||
-    c.get("admin")?.value ||
-    c.get("mzbc_admin")?.value ||
-    c.get("MZBC_ADM")?.value;
-  return v === "ok" || v === "1" || v?.toLowerCase() === "true" || v === "yes";
-}
-
-const ok = (data: any, status = 200) =>
-  NextResponse.json(data, { status });
-const bad = (msg = "Bad request", code = 400) =>
-  NextResponse.json({ error: msg }, { status: code });
-
-/* ----------------- GET: list recent media ----------------- */
+/** GET /api/media -> { items: Media[] } */
 export async function GET() {
   await dbConnect();
-  const items = await MediaItem.find().sort({ createdAt: -1 }).limit(200).lean();
-  return ok({ items: items || [] });
+  const items = await Media.find({}).sort({ createdAt: -1 }).lean().exec();
+  return NextResponse.json({ items });
 }
 
-/* ------------- POST: create (accepts JSON or FormData) ------------- */
-export async function POST(req: NextRequest) {
-  if (!isAdmin(req)) return bad("Unauthorized", 401);
-  await dbConnect();
+/** POST /api/media (admin) body: { kind, title?, url, thumbnail? } */
+export async function POST(req: Request) {
+  const unauth = requireAdmin(req);
+  if (unauth) return unauth;
 
-  const ct = req.headers.get("content-type") || "";
-  let body: any = {};
+  await dbConnect();
 
   try {
-    if (ct.includes("application/json")) {
-      body = await req.json();
-    } else if (
-      ct.includes("multipart/form-data") ||
-      ct.includes("application/x-www-form-urlencoded")
-    ) {
-      const fd = await req.formData();
-      body = Object.fromEntries(fd.entries());
+    const body = await req.json();
+    const kind = String(body?.kind || "");
+    const url = String(body?.url || "");
+    const title = String(body?.title || "");
+    const thumbnail = String(body?.thumbnail || "");
+
+    if (!kind || !["youtube", "photo", "audio"].includes(kind)) {
+      return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
     }
-  } catch (_) { /* ignore */ }
+    if (!url) {
+      return NextResponse.json({ error: "URL / Video ID required" }, { status: 400 });
+    }
 
-  const kind = String(body.kind || "").trim(); // youtube | photo | audio
-  const title = String(body.title || "").trim();
-  const url = String(body.url || "").trim();         // for youtube: VIDEO ID only
-  const thumbnail = String(body.thumbnail || "").trim() || undefined;
-
-  if (!["youtube", "photo", "audio"].includes(kind)) {
-    return bad("Invalid kind");
+    await Media.create({ kind, title, url, thumbnail });
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 });
   }
-  if (!url) return bad("URL / Video ID is required");
-
-  // minimal YT id check
-  if (kind === "youtube" && url.length > 20) {
-    return bad("For YouTube, provide the VIDEO ID (not the full URL).");
-  }
-
-  const created = await MediaItem.create({ kind, title, url, thumbnail });
-  return ok(created, 201);
 }
 
-/* ------------------ DELETE: /api/media?id=... ------------------ */
-export async function DELETE(req: NextRequest) {
-  if (!isAdmin(req)) return bad("Unauthorized", 401);
+/** DELETE /api/media?id=... (admin) */
+export async function DELETE(req: Request) {
+  const unauth = requireAdmin(req);
+  if (unauth) return unauth;
+
   await dbConnect();
 
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return bad("Missing id");
+  const url = new URL(req.url);
+  const id = url.searchParams.get("id") || "";
+  if (!id) {
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
 
-  await MediaItem.deleteOne({ _id: id });
-  return ok({ ok: true });
+  try {
+    await Media.deleteOne({ _id: id }).exec();
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 });
+  }
 }

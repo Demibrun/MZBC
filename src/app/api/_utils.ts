@@ -1,16 +1,25 @@
-// src/app/api/_utils.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-export async function requireAdmin() {
-  const c =
-    cookies().get("mz_admin")?.value ??
-    cookies().get("mz_auth")?.value ??
-    cookies().get("admin")?.value;
-  const secret = process.env.ADMIN_SECRET || process.env.AUTH_SECRET;
+/** true if ADMIN_SESSION=ok is present (works in Node/Edge/dev/prod) */
+export function isAdmin(req: Request): boolean {
+  try {
+    // Prefer Next.js server cookies (reliable across runtimes)
+    const c = cookies().get("ADMIN_SESSION")?.value;
+    if (c === "ok") return true;
+  } catch {
+    // ignore; fall back to raw header below
+  }
 
-  const ok = !!c && (!!secret ? c === secret : true);
-  if (!ok) {
+  const header = req.headers.get("cookie") || "";
+  if (/ADMIN_SESSION=ok/.test(header)) return true;
+
+  return false;
+}
+
+/** Return 401 NextResponse when not admin; otherwise null */
+export function requireAdmin(req: Request) {
+  if (!isAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;

@@ -1,22 +1,23 @@
-// src/lib/db.ts
 import mongoose from "mongoose";
 
-let _connecting: Promise<typeof mongoose> | null = null;
+const MONGODB_URI = process.env.MONGODB_URI || "";
+if (!MONGODB_URI) {
+  throw new Error("Missing MONGODB_URI env var");
+}
+
+type Cached = { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null };
+let cached: Cached = (global as any)._mongooseCached || { conn: null, promise: null };
 
 export async function dbConnect() {
-  if (mongoose.connection.readyState === 1) return mongoose; // connected
-  if (_connecting) return _connecting;
-
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("MONGODB_URI is not set");
-
-  _connecting = mongoose.connect(uri, {
-    // add options if needed
-  });
-  try {
-    await _connecting;
-    return mongoose;
-  } finally {
-    _connecting = null;
+  if (cached.conn) return cached.conn;
+  if (!cached.promise) {
+    cached.promise = mongoose
+      .connect(MONGODB_URI, {
+        dbName: process.env.MONGODB_DB || undefined,
+      })
+      .then((m) => m);
   }
+  cached.conn = await cached.promise;
+  (global as any)._mongooseCached = cached;
+  return cached.conn;
 }

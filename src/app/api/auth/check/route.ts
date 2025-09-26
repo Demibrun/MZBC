@@ -1,10 +1,9 @@
-// src/app/api/auth/check/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { isAuthed } from "@/lib/admin";
+import { NextResponse } from "next/server";
 
-export async function GET(req: NextRequest) {
-  if (!isAuthed(req)) {
-    return NextResponse.json({ authed: false }, { status: 401 });
+export async function GET(req: Request) {
+  const cookie = req.headers.get("cookie") || "";
+  if (!/ADMIN_SESSION=ok/.test(cookie)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json({ authed: true });
+  return NextResponse.json({ ok: true });
 }

@@ -1,51 +1,90 @@
-import { dbConnect } from "@/lib/db";
-import { MediaItem } from "@/lib/models";
-
 export const dynamic = "force-dynamic";
 
-export default async function MediaPage(){
-  await dbConnect();
-  const items = await MediaItem.find().sort({ createdAt: -1 }).lean();
+import { headers } from "next/headers";
 
-  const yt = items.filter((i:any)=>i.kind==="youtube");
-  const photos = items.filter((i:any)=>i.kind==="photo");
-  const audio = items.filter((i:any)=>i.kind==="audio");
+type Media = {
+  _id: string;
+  kind: "youtube" | "photo" | "audio";
+  title?: string;
+  url: string;       // youtube videoId or full URL (photo/audio)
+  thumbnail?: string;
+  createdAt?: string;
+};
+
+function getBaseUrl() {
+  const h = headers();
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  return `${proto}://${host}`;
+}
+
+async function getMedia(): Promise<Media[]> {
+  const res = await fetch(`${getBaseUrl()}/api/media`, {
+    cache: "no-store",
+    next: { revalidate: 0 },
+  });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return Array.isArray(json?.items) ? (json.items as Media[]) : [];
+}
+
+export default async function MediaPage() {
+  const items = await getMedia();
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10 space-y-10">
-      <section>
-        <h1 className="text-2xl font-bold mb-4">Sermons & Praise (YouTube)</h1>
-        {yt.length === 0 && <p>No videos yet.</p>}
-        <div className="grid md:grid-cols-3 gap-4">
-          {yt.map((v:any)=>(
-            <iframe key={v._id} className="w-full aspect-video rounded"
-              src={`https://www.youtube.com/embed/${v.url}`} title={v.title} allowFullScreen />
+    <main className="max-w-6xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-bold mb-6">Media</h1>
+
+      {items.length === 0 ? (
+        <p>No media uploaded yet.</p>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {items.map((m) => (
+            <article key={m._id} className="rounded-xl border bg-white p-4">
+              <div className="text-xs uppercase text-gray-500 mb-1">{m.kind}</div>
+              {m.title && <h3 className="font-semibold">{m.title}</h3>}
+
+              {/* Render previews */}
+              <div className="mt-3">
+                {m.kind === "youtube" && (
+                  <iframe
+                    className="w-full aspect-video rounded"
+                    src={`https://www.youtube.com/embed/${m.url}`}
+                    title={m.title || "YouTube"}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                )}
+
+                {m.kind === "photo" && (
+                  // If thumbnail is present prefer it; otherwise use url
+                  <img
+                    src={m.thumbnail || m.url}
+                    alt={m.title || "Photo"}
+                    className="w-full h-56 object-cover rounded"
+                  />
+                )}
+
+                {m.kind === "audio" && (
+                  <audio className="w-full" controls src={m.url}>
+                    Your browser does not support the audio element.
+                  </audio>
+                )}
+              </div>
+
+              {/* Show the raw link for convenience */}
+              <a
+                href={m.kind === "youtube" ? `https://youtu.be/${m.url}` : m.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-block text-sm text-blue-700 underline break-all"
+              >
+                Open
+              </a>
+            </article>
           ))}
         </div>
-      </section>
-
-      <section>
-        <h2 className="text-xl font-semibold mb-3">Photo Highlights</h2>
-        {photos.length === 0 && <p>No photos yet.</p>}
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2">
-          {photos.map((p:any)=>(
-            <img key={p._id} className="w-full h-48 object-cover rounded" src={p.thumbnail || p.url} alt={p.title}/>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-xl font-semibold mb-3">Audio</h2>
-        {audio.length === 0 && <p>No audio yet.</p>}
-        <ul className="space-y-3">
-          {audio.map((a:any)=>(
-            <li key={a._id} className="border rounded p-3">
-              <p className="font-medium">{a.title}</p>
-              <audio controls className="mt-2 w-full"><source src={a.url} /></audio>
-            </li>
-          ))}
-        </ul>
-      </section>
+      )}
     </main>
   );
 }
