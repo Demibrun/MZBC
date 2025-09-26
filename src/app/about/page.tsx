@@ -1,58 +1,84 @@
 // src/app/about/page.tsx
-import mongoose from "mongoose";
-import { dbConnect } from "@/lib/db";
-
 export const dynamic = "force-dynamic";
 
-const GROUPS = [
-  { key: "women",     title: "Women" },
-  { key: "beacons",   title: "Covenant Beacons" },
-  { key: "men",       title: "Men of Valour" },
+import { dbConnect } from "@/lib/db";
+import { MinistryGroup } from "@/lib/models";
+
+/**
+ * About page
+ * - Pulls specific ministry groups by key
+ * - Uses .lean().exec() to avoid Mongoose TS signature issues in builds
+ */
+
+const KEYS = [
+  { key: "women",     title: "Gracious Zion Women" },
+  { key: "beacons",   title: "Zion Covenant Beacons" },
+  { key: "men",       title: "Zion Men of Valour" },
   { key: "heritage",  title: "Zion Heritage" },
-  { key: "champions", title: "Divine Champions" },
-];
+  { key: "champions", title: "Zion Divine Champions" },
+] as const;
+
+type GroupDoc = {
+  _id?: string;
+  key: string;
+  title?: string;
+  photoUrl?: string;
+  body?: string;
+};
 
 export default async function AboutPage() {
   await dbConnect();
 
-  const wantedKeys = GROUPS.map((g) => g.key);
-
-  // Use the raw Mongo collection to avoid TS overload errors from Mongoose .find()
-  // Mongoose model name: "MinistryGroup" -> default collection name "ministrygroups"
-  const docs = (await mongoose.connection.db
-    .collection("ministrygroups")
+  const wantedKeys = KEYS.map(k => k.key);
+  // ✅ Use .lean().exec() so Vercel/TS stops complaining
+  const docs = (await MinistryGroup
     .find({ key: { $in: wantedKeys } })
-    .toArray()) as any[];
+    .lean()
+    .exec()) as GroupDoc[];
 
-  const byKey: Record<string, any> = Object.fromEntries(
-    docs.map((d: any) => [d.key, d])
-  );
+  const byKey: Record<string, GroupDoc | undefined> =
+    Object.fromEntries(docs.map(d => [d.key, d]));
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10 grid gap-6">
-      <h1 className="text-3xl font-bold">About Our Ministries</h1>
+    <main className="mx-auto max-w-6xl px-4 py-10 grid gap-8">
+      <header>
+        <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--mz-deep-blue)]">
+          About Us
+        </h1>
+        <p className="mt-1 text-[var(--mz-dark)]/70">
+          Learn about our ministries and family groups in Mount Zion.
+        </p>
+      </header>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {GROUPS.map((g) => {
-          const item = byKey[g.key] || {};
+      <div className="grid gap-6 md:grid-cols-2">
+        {KEYS.map(({ key, title }) => {
+          const g = byKey[key];
           return (
             <section
-              key={g.key}
-              className="rounded-xl border border-black/10 bg-white p-5 shadow-sm"
+              key={key}
+              className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm"
             >
-              <h2 className="text-xl font-semibold">{item.title || g.title}</h2>
-
-              {item.photoUrl && (
-                <img
-                  src={item.photoUrl}
-                  alt={item.title || g.title}
-                  className="mt-3 h-48 w-full object-cover rounded-lg"
-                />
-              )}
-
-              <p className="mt-3 whitespace-pre-wrap text-[var(--mz-dark)]/90">
-                {item.body || "Details coming soon."}
-              </p>
+              <div className="flex items-start gap-4">
+                {g?.photoUrl ? (
+                  <img
+                    src={g.photoUrl}
+                    alt={g.title || title}
+                    className="h-24 w-24 flex-none rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="h-24 w-24 flex-none rounded-lg bg-black/5 grid place-items-center text-sm text-black/40">
+                    No Image
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-xl font-bold text-[var(--mz-deep-blue)]">
+                    {g?.title || title}
+                  </h2>
+                  <p className="mt-2 text-sm text-[var(--mz-dark)]/80 whitespace-pre-wrap">
+                    {g?.body || "Details will appear here when available."}
+                  </p>
+                </div>
+              </div>
             </section>
           );
         })}

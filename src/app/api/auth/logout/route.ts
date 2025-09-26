@@ -1,11 +1,8 @@
-import { NextResponse } from "next/server";
+// src/app/api/auth/logout/route.ts
+import { clearAdminCookie } from "../../_utils";
+
+export const dynamic = "force-dynamic";
 
 export async function POST() {
-  const res = NextResponse.json({ ok: true });
-  // Expire immediately
-  res.headers.append(
-    "Set-Cookie",
-    "ADMIN_SESSION=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax"
-  );
-  return res;
+  return clearAdminCookie();
 }

@@ -1,24 +1,45 @@
+// src/app/api/ministry-groups/route.ts
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
 import { MinistryGroup } from "@/lib/models";
-import { Types } from "mongoose";
+import { requireAdmin } from "../_utils";
 
-export async function GET(){
+export async function GET() {
   await dbConnect();
-  const items = await MinistryGroup.find().sort({ title:1 }).lean();
+  const items = await MinistryGroup.find().sort({ createdAt: -1 }).lean().exec();
   return NextResponse.json({ items });
 }
-export async function POST(req:Request){
+
+// upsert by "key"
+export async function POST(req: Request) {
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
+
   await dbConnect();
-  const data = await req.json();
-  const doc = await MinistryGroup.findOneAndUpdate(
-    { key: data.key }, { $set: data }, { upsert:true, new:true }
-  );
-  return NextResponse.json(doc);
+  const body = await req.json();
+  const { key, title, photoUrl, body: text } = body || {};
+  if (!key) return NextResponse.json({ error: "Missing key" }, { status: 400 });
+
+  await MinistryGroup.updateOne(
+    { key },
+    { $set: { title: title || "", photoUrl: photoUrl || "", body: text || "" } },
+    { upsert: true }
+  ).exec();
+
+  return NextResponse.json({ ok: true });
 }
-export async function DELETE(req:Request){
+
+export async function DELETE(req: Request) {
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
+
   await dbConnect();
-  const id = new URL(req.url).searchParams.get("id");
-  if(id && Types.ObjectId.isValid(id)) await MinistryGroup.deleteOne({ _id:id });
-  return NextResponse.json({ ok:true });
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  await MinistryGroup.deleteOne({ _id: id }).exec();
+  return NextResponse.json({ ok: true });
 }

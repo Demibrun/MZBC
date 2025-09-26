@@ -1,119 +1,104 @@
+// src/app/api/daily/route.ts
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
-import { DailySection } from "@/models/DailySection";
-import { requireAdmin } from "@/app/api/_utils";
+import { DailySection } from "@/lib/models";
+import { requireAdmin } from "../_utils";
 
 /**
- * GET /api/daily?section=wordOfDay
- * - section present: returns { section: { key, items } }
- * - no section: returns { sections: { [key]: { key, items } } } (each limited to 50)
+ * GET:
+ *  - /api/daily?section=wordOfDay|prophetic|sundaySchool|devotional|homecare
+ *  - If no section given, returns all sections (each with items[])
  */
 export async function GET(req: Request) {
   await dbConnect();
 
-  const url = new URL(req.url);
-  const section = url.searchParams.get("section") as
-    | "wordOfDay"
-    | "prophetic"
-    | "sundaySchool"
-    | "devotional"
-    | "homecare"
-    | null;
+  const { searchParams } = new URL(req.url);
+  const section = searchParams.get("section");
 
-  try {
-    if (section) {
-      const doc: any =
-        (await DailySection.findOne({ key: section }).lean()) || null;
-
-      return NextResponse.json({
-        section: {
-          key: section,
-          items: Array.isArray(doc?.items) ? doc.items.slice(0, 50) : [],
-        },
-      });
-    }
-
-    const keys = ["wordOfDay", "prophetic", "sundaySchool", "devotional", "homecare"];
-    const out: Record<string, any> = {};
-    for (const k of keys) {
-      const doc: any = (await DailySection.findOne({ key: k }).lean()) || null;
-      out[k] = { key: k, items: Array.isArray(doc?.items) ? doc.items.slice(0, 50) : [] };
-    }
-    return NextResponse.json({ sections: out });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 });
+  if (section) {
+    const doc =
+      (await DailySection.findOne({ key: section }).lean().exec()) || null;
+    return NextResponse.json({
+      section: {
+        key: section,
+        items: doc?.items || [],
+      },
+    });
   }
+
+  // all sections
+  const keys = ["wordOfDay", "prophetic", "sundaySchool", "devotional", "homecare"] as const;
+  const docs = await DailySection.find({ key: { $in: keys } }).lean().exec();
+  const byKey = Object.fromEntries(docs.map((d: any) => [d.key, d]));
+  return NextResponse.json({
+    sections: {
+      wordOfDay: { items: byKey["wordOfDay"]?.items || [] },
+      prophetic: { items: byKey["prophetic"]?.items || [] },
+      sundaySchool: { items: byKey["sundaySchool"]?.items || [] },
+      devotional: { items: byKey["devotional"]?.items || [] },
+      homecare: { items: byKey["homecare"]?.items || [] },
+    },
+  });
 }
 
 /**
- * POST /api/daily
- * body: { section, entry:{ date?, title, subtitle?, text } }
+ * POST (admin): add entry to a section
+ * body: { section: "wordOfDay"|"prophetic"|..., entry: { date?, title, subtitle?, text } }
  */
 export async function POST(req: Request) {
-  const unauth = requireAdmin(req);
-  if (unauth) return unauth;
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
 
   await dbConnect();
+  const body = await req.json();
+  const section = body?.section;
+  const entry = body?.entry;
 
-  try {
-    const body = await req.json();
-    const section = String(body?.section || "");
-    const entry = body?.entry ?? {};
-
-    if (!section) {
-      return NextResponse.json({ error: "section required" }, { status: 400 });
-    }
-    if (!entry?.title || !entry?.text) {
-      return NextResponse.json({ error: "Title and text are required" }, { status: 400 });
-    }
-
-    // Ensure the section doc exists
-    let doc = await DailySection.findOne({ key: section });
-    if (!doc) {
-      doc = new DailySection({ key: section, items: [] });
-    }
-
-    // Add item to the start
-    doc.items.unshift({
-      date: entry.date || undefined,
-      title: entry.title,
-      subtitle: entry.subtitle || undefined,
-      text: entry.text,
-    });
-
-    await doc.save();
-
-    return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 });
+  if (!section || !entry?.title || !entry?.text) {
+    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
+
+  const doc =
+    (await DailySection.findOne({ key: section }).exec()) ||
+    (await DailySection.create({ key: section, items: [] }));
+
+  // newest on top
+  doc.items.unshift({
+    date: entry.date || "",
+    title: entry.title,
+    subtitle: entry.subtitle || "",
+    text: entry.text,
+  });
+
+  await doc.save();
+  return NextResponse.json({ ok: true });
 }
 
 /**
- * DELETE /api/daily?section=...&id=...
+ * DELETE (admin): remove one entry by id from a section
+ *  /api/daily?section=...&id=...
  */
 export async function DELETE(req: Request) {
-  const unauth = requireAdmin(req);
-  if (unauth) return unauth;
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
 
   await dbConnect();
 
-  const url = new URL(req.url);
-  const section = url.searchParams.get("section") || "";
-  const id = url.searchParams.get("id") || "";
+  const { searchParams } = new URL(req.url);
+  const section = searchParams.get("section");
+  const id = searchParams.get("id");
 
   if (!section || !id) {
-    return NextResponse.json({ error: "section and id required" }, { status: 400 });
+    return NextResponse.json({ error: "Missing section or id" }, { status: 400 });
   }
 
-  try {
-    await DailySection.updateOne(
-      { key: section },
-      { $pull: { items: { _id: id } } }
-    ).exec();
+  const doc = await DailySection.findOne({ key: section }).exec();
+  if (!doc) return NextResponse.json({ ok: true }); // nothing to delete
 
-    return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 });
-  }
+  doc.items = doc.items.filter((x: any) => String(x._id) !== String(id));
+  await doc.save();
+
+  return NextResponse.json({ ok: true });
 }

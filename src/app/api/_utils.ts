@@ -1,26 +1,17 @@
-import { NextResponse } from "next/server";
+// src/app/api/_utils.ts
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
-/** true if ADMIN_SESSION=ok is present (works in Node/Edge/dev/prod) */
-export function isAdmin(req: Request): boolean {
-  try {
-    // Prefer Next.js server cookies (reliable across runtimes)
-    const c = cookies().get("ADMIN_SESSION")?.value;
-    if (c === "ok") return true;
-  } catch {
-    // ignore; fall back to raw header below
-  }
-
-  const header = req.headers.get("cookie") || "";
-  if (/ADMIN_SESSION=ok/.test(header)) return true;
-
-  return false;
-}
-
-/** Return 401 NextResponse when not admin; otherwise null */
-export function requireAdmin(req: Request) {
-  if (!isAdmin(req)) {
+/**
+ * Simple cookie-based admin gate.
+ * On login, you set cookie "mz_admin" to the exact ADMIN_PASSWORD.
+ * If it matches, user is admin.
+ */
+export function requireAdmin() {
+  const cookie = cookies().get("mz_admin")?.value;
+  const expected = process.env.ADMIN_PASSWORD || "mzbcwebsite";
+  if (!cookie || cookie !== expected) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return null;
+  return null; // OK
 }

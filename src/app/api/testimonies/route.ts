@@ -1,53 +1,68 @@
+// src/app/api/testimonies/route.ts
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { dbConnect } from "@/lib/db";
 import { Testimony } from "@/lib/models";
+import { requireAdmin } from "../_utils";
 
-function isAdmin() {
-  return cookies().get("mzbc_admin")?.value === "1";
-}
-
-// GET /api/testimonies?pending=1 -> pending only
-// GET /api/testimonies            -> approved only (for public pages)
 export async function GET(req: Request) {
   await dbConnect();
-  const url = new URL(req.url);
-  const pending = url.searchParams.get("pending");
-  const q: any = pending ? { approved: false } : { approved: true };
-  const items = await Testimony.find(q).sort({ createdAt: -1 }).lean();
+  const { searchParams } = new URL(req.url);
+  const all = searchParams.get("all");
+  const pending = searchParams.get("pending");
+
+  let query: any = {};
+  if (!all && !pending) query.approved = true;
+  if (pending) query.approved = false;
+
+  const items = await Testimony.find(query).sort({ createdAt: -1 }).lean().exec();
   return NextResponse.json({ items });
 }
 
-// POST
-// - Public can post (approved=false by default)
-// - Admin can post approved immediately
+// Admin can create approved testimonies directly
 export async function POST(req: Request) {
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
+
   await dbConnect();
   const body = await req.json();
+  const { title, name, body: tBody, approved } = body || {};
+  if (!title || !tBody) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+
   const created = await Testimony.create({
-    title: body.title,
-    name: body.name,
-    body: body.body,
-    approved: isAdmin() ? true : false,
+    title,
+    name: name || "",
+    body: tBody,
+    approved: approved === true,
   });
-  return NextResponse.json(created);
+  return NextResponse.json(created.toObject());
 }
 
-// PUT approve/reject (admin only)
+// Approve/Reject by id
 export async function PUT(req: Request) {
-  if (!isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
+
   await dbConnect();
   const body = await req.json();
-  await Testimony.updateOne({ _id: body.id }, { approved: !!body.approve });
+  const { id, approve } = body || {};
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  await Testimony.updateOne({ _id: id }, { $set: { approved: !!approve } }).exec();
   return NextResponse.json({ ok: true });
 }
 
-// DELETE (admin only)
+// Delete by id
 export async function DELETE(req: Request) {
-  if (!isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
+
   await dbConnect();
-  const url = new URL(req.url);
-  const id = url.searchParams.get("id");
-  if (id) await Testimony.deleteOne({ _id: id });
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  await Testimony.deleteOne({ _id: id }).exec();
   return NextResponse.json({ ok: true });
 }

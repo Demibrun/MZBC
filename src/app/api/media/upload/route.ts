@@ -1,13 +1,12 @@
 // src/app/api/media/upload/route.ts
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs"; // ensure Node runtime on Vercel
+export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "../../_utils";
 import { v2 as cloudinary } from "cloudinary";
 
-// Configure via one env var or three individual ones
-// Preferred: CLOUDINARY_URL="cloudinary://<api_key>:<api_secret>@<cloud_name>"
+// Configure Cloudinary
 if (!process.env.CLOUDINARY_URL) {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } =
     process.env as Record<string, string>;
@@ -17,7 +16,7 @@ if (!process.env.CLOUDINARY_URL) {
     api_secret: CLOUDINARY_API_SECRET,
   });
 } else {
-  cloudinary.config(true); // use CLOUDINARY_URL
+  cloudinary.config(true);
 }
 
 function bufferFromFile(f: File) {
@@ -25,12 +24,12 @@ function bufferFromFile(f: File) {
 }
 
 export async function POST(req: Request) {
-  const notAdmin = await requireAdmin();
+  const notAdmin = requireAdmin();
   if (notAdmin) return notAdmin;
 
   try {
     const form = await req.formData();
-    const kind = (form.get("kind") as string) || ""; // "photo" | "audio"
+    const kind = (form.get("kind") as string) || "";
     const file = form.get("file") as File | null;
     const title = (form.get("title") as string) || "";
 
@@ -39,17 +38,13 @@ export async function POST(req: Request) {
     }
 
     const buf = await bufferFromFile(file);
-
-    // Pick Cloudinary resource type
     const resource_type = kind === "audio" ? "video" : "image";
-    // NOTE: Cloudinary treats audio as 'video' resource_type
 
     const uploaded: any = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
           folder: "mzbc",
           resource_type,
-          public_id: undefined, // let Cloudinary generate
           overwrite: false,
           context: title ? { caption: title, alt: title } : undefined,
         },
@@ -58,13 +53,8 @@ export async function POST(req: Request) {
       stream.end(buf);
     });
 
-    // Normalize the return
     const url: string = uploaded.secure_url;
-    // For images we can pass a derived thumbnail. For audio we keep url only.
-    const thumbnail =
-      resource_type === "image"
-        ? uploaded.secure_url
-        : undefined;
+    const thumbnail = resource_type === "image" ? uploaded.secure_url : undefined;
 
     return NextResponse.json({
       ok: true,

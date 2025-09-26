@@ -19,16 +19,14 @@ const Sermon =
     )
   );
 
-// GET: read current hero
 export async function GET() {
   await dbConnect();
   const doc = await Sermon.findOne({}).lean().exec();
   return NextResponse.json({ item: doc || { heroHeadline: "", heroSub: "" } });
 }
 
-// PUT: admin-only upsert hero
 export async function PUT(req: Request) {
-  const notAdmin = await requireAdmin();
+  const notAdmin = requireAdmin();
   if (notAdmin) return notAdmin;
 
   await dbConnect();
