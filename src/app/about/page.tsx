@@ -1,33 +1,31 @@
 // src/app/about/page.tsx
-// Server component
+import mongoose from "mongoose";
 import { dbConnect } from "@/lib/db";
-import { MinistryGroup } from "@/lib/models";
 
 export const dynamic = "force-dynamic";
 
 const GROUPS = [
   { key: "women",     title: "Women" },
-  { key: "beacons",   title: "Beacons" },
-  { key: "men",       title: "Men" },
-  { key: "heritage",  title: "Heritage" },
-  { key: "champions", title: "Champions" },
+  { key: "beacons",   title: "Covenant Beacons" },
+  { key: "men",       title: "Men of Valour" },
+  { key: "heritage",  title: "Zion Heritage" },
+  { key: "champions", title: "Divine Champions" },
 ];
 
 export default async function AboutPage() {
   await dbConnect();
 
-  // Avoid TS overload confusion by computing array first
-  const wantedKeys = GROUPS.map(g => g.key);
+  const wantedKeys = GROUPS.map((g) => g.key);
 
-  // Either .lean<any[]>() or .lean().exec() works; using exec() is very stable
-  const docs = await MinistryGroup
+  // Use the raw Mongo collection to avoid TS overload errors from Mongoose .find()
+  // Mongoose model name: "MinistryGroup" -> default collection name "ministrygroups"
+  const docs = (await mongoose.connection.db
+    .collection("ministrygroups")
     .find({ key: { $in: wantedKeys } })
-    .lean()
-    .exec();
+    .toArray()) as any[];
 
-  // Map by key for easy lookup
   const byKey: Record<string, any> = Object.fromEntries(
-    (docs as any[]).map((d: any) => [d.key, d])
+    docs.map((d: any) => [d.key, d])
   );
 
   return (
@@ -35,11 +33,15 @@ export default async function AboutPage() {
       <h1 className="text-3xl font-bold">About Our Ministries</h1>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {GROUPS.map(g => {
+        {GROUPS.map((g) => {
           const item = byKey[g.key] || {};
           return (
-            <section key={g.key} className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
+            <section
+              key={g.key}
+              className="rounded-xl border border-black/10 bg-white p-5 shadow-sm"
+            >
               <h2 className="text-xl font-semibold">{item.title || g.title}</h2>
+
               {item.photoUrl && (
                 <img
                   src={item.photoUrl}
@@ -47,6 +49,7 @@ export default async function AboutPage() {
                   className="mt-3 h-48 w-full object-cover rounded-lg"
                 />
               )}
+
               <p className="mt-3 whitespace-pre-wrap text-[var(--mz-dark)]/90">
                 {item.body || "Details coming soon."}
               </p>
