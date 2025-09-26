@@ -1,6 +1,7 @@
 // src/app/about/page.tsx
 import { dbConnect } from "@/lib/db";
 import { MinistryGroup } from "@/lib/models";
+import type mongoose from "mongoose";
 
 type GroupDoc = {
   _id?: string;
@@ -15,18 +16,19 @@ export const dynamic = "force-dynamic";
 export default async function AboutPage() {
   await dbConnect();
 
-  const keys = [
+  const groupsMeta = [
     { key: "women", title: "Women of Zion" },
     { key: "beacons", title: "Beacons" },
     { key: "men", title: "Men of Valor" },
     { key: "heritage", title: "Heritage (Children)" },
-    { key: "champions", title: "Champions (Teens/Youth)" },
+    { key: "champions", title: "Champions" },
   ] as const;
 
-  const wantedKeys = keys.map((k) => k.key);
+  const wantedKeys = groupsMeta.map((k) => k.key);
 
-  // ✅ Use .lean().exec() and cast to our local type
-  const docs = (await MinistryGroup.find({ key: { $in: wantedKeys } })
+  // 👇 Cast model to break TS overload union so .find().lean().exec() is callable
+  const docs = (await (MinistryGroup as unknown as mongoose.Model<any>)
+    .find({ key: { $in: wantedKeys } })
     .lean()
     .exec()) as GroupDoc[];
 
@@ -42,22 +44,20 @@ export default async function AboutPage() {
       </header>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {keys.map((k) => {
-          const g = byKey[k.key] as GroupDoc | undefined;
+        {groupsMeta.map((g) => {
+          const doc = byKey[g.key] as GroupDoc | undefined;
           return (
-            <section key={k.key} className="border rounded-lg p-4 bg-white">
-              <h2 className="text-xl font-semibold">
-                {g?.title || k.title}
-              </h2>
-              {g?.photoUrl && (
+            <section key={g.key} className="border rounded-lg p-4 bg-white">
+              <h2 className="text-xl font-semibold">{doc?.title || g.title}</h2>
+              {doc?.photoUrl && (
                 <img
-                  src={g.photoUrl}
-                  alt={g.title || k.title}
+                  src={doc.photoUrl}
+                  alt={doc.title || g.title}
                   className="mt-3 h-44 w-full object-cover rounded"
                 />
               )}
               <p className="mt-3 whitespace-pre-wrap">
-                {g?.body || "Details coming soon."}
+                {doc?.body || "Details coming soon."}
               </p>
             </section>
           );
