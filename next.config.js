@@ -1,14 +1,24 @@
 // next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  images: {
+    // Allow Next/Image to load your Cloudinary assets
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+    ],
+  },
+
+
   typescript: {
-    // ❗ allows production build to succeed even if there are type errors
     ignoreBuildErrors: true,
   },
   eslint: {
-    // ❗ skip ESLint during builds
     ignoreDuringBuilds: true,
   },
+
   experimental: {
     serverActions: { allowedOrigins: ['*'] },
   },
