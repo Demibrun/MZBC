@@ -1,34 +1,59 @@
+// src/app/about/page.tsx
+// Server component
 import { dbConnect } from "@/lib/db";
 import { MinistryGroup } from "@/lib/models";
 
 export const dynamic = "force-dynamic";
 
-const keys = [
-  { key: "women", title: "Gracious Zion Women" },
-  { key: "beacons", title: "Zion Covenant Beacons" },
-  { key: "men", title: "Zion Men of Valour" },
-  { key: "heritage", title: "Zion Heritage" },
-  { key: "champions", title: "Zion Divine Champions" },
+const GROUPS = [
+  { key: "women",     title: "Women" },
+  { key: "beacons",   title: "Beacons" },
+  { key: "men",       title: "Men" },
+  { key: "heritage",  title: "Heritage" },
+  { key: "champions", title: "Champions" },
 ];
 
-export default async function AboutPage(){
+export default async function AboutPage() {
   await dbConnect();
-  const docs = await MinistryGroup.find({ key: { $in: keys.map(k=>k.key) } }).lean();
-  const byKey = Object.fromEntries(docs.map((d:any)=>[d.key, d]));
+
+  // Avoid TS overload confusion by computing array first
+  const wantedKeys = GROUPS.map(g => g.key);
+
+  // Either .lean<any[]>() or .lean().exec() works; using exec() is very stable
+  const docs = await MinistryGroup
+    .find({ key: { $in: wantedKeys } })
+    .lean()
+    .exec();
+
+  // Map by key for easy lookup
+  const byKey: Record<string, any> = Object.fromEntries(
+    (docs as any[]).map((d: any) => [d.key, d])
+  );
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-10 grid gap-8">
-      <h1 className="text-2xl font-bold">About Us</h1>
-      {keys.map(k=>{
-        const d:any = byKey[k.key] || {};
-        return (
-          <section key={k.key} className="border rounded p-4">
-            <h2 className="text-xl font-semibold">{k.title}</h2>
-            {d.photoUrl && <img src={d.photoUrl} alt={k.title} className="mt-3 w-full max-h-64 object-cover rounded" />}
-            <p className="mt-3 whitespace-pre-wrap">{d.body || "Content coming soon."}</p>
-          </section>
-        );
-      })}
+    <main className="max-w-6xl mx-auto px-4 py-10 grid gap-6">
+      <h1 className="text-3xl font-bold">About Our Ministries</h1>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        {GROUPS.map(g => {
+          const item = byKey[g.key] || {};
+          return (
+            <section key={g.key} className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-semibold">{item.title || g.title}</h2>
+              {item.photoUrl && (
+                <img
+                  src={item.photoUrl}
+                  alt={item.title || g.title}
+                  className="mt-3 h-48 w-full object-cover rounded-lg"
+                />
+              )}
+              <p className="mt-3 whitespace-pre-wrap text-[var(--mz-dark)]/90">
+                {item.body || "Details coming soon."}
+              </p>
+            </section>
+          );
+        })}
+      </div>
     </main>
   );
 }
