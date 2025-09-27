@@ -42,9 +42,7 @@ export default function Header() {
           {/* Desktop (lg+) */}
           <nav className="hidden lg:flex items-center gap-6 text-[var(--mz-dark)]">
             <NavLinks onClick={() => {}} />
-            <Link href="/admin" className="font-semibold hover:underline">
-              Admin
-            </Link>
+            {/* Admin link removed from public header */}
           </nav>
 
           {/* Burger (mobile + tablet) */}
@@ -148,11 +146,7 @@ export default function Header() {
               href="/testimonies"
               onClick={() => setOpen(false)}
             />
-            <NavItem
-              label="Admin"
-              href="/admin"
-              onClick={() => setOpen(false)}
-            />
+            {/* Admin link removed from mobile drawer */}
           </ul>
         </nav>
       </aside>
@@ -171,6 +165,8 @@ function NavLinks({ onClick }: { onClick: () => void }) {
     ["Deliverance", "/deliverance"],
     ["Testimonies", "/testimonies"],
     ["Humor of The Week", "/humor"],
+    ["Media", "/media"],
+    ["Services", "/services"],
   ] as const;
   return (
     <>

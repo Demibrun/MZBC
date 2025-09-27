@@ -15,15 +15,7 @@ export default function Hero() {
         { k: "Bank name", v: "STANBIC-IBTC BANK PLC" },
       ],
     },
-    {
-      label: "Dollar Account",
-      fields: [
-        { k: "Account number", v: "" }, // fill when available
-        { k: "Account name", v: "" },
-        { k: "Bank name", v: "" },
-      ],
-    },
-  ];
+  ]
 
   function copy(text: string) {
     if (!text) return;
@@ -78,24 +70,24 @@ export default function Hero() {
             <h3 className="text-lg font-semibold">Watch Live</h3>
             <p className="text-sm text-gray-600 mt-1 mb-4">Choose your platform:</p>
 
-            <div className="grid gap-3">
-              <a
-                href="https://www.youtube.com/@MountZionPrayerMinistryI-fz9ls/live"
-                target="_blank"
-                rel="noreferrer"
-                className="block rounded-md border border-black/10 px-4 py-2 text-center font-medium hover:bg-black/5"
-              >
-                YouTube
-              </a>
-              <a
-                href="https://web.facebook.com/mzpmi"
-                target="_blank"
-                rel="noreferrer"
-                className="block rounded-md border border-black/10 px-4 py-2 text-center font-medium hover:bg-black/5"
-              >
-                Facebook
-              </a>
-            </div>
+          <div className="grid gap-3">
+  <a
+    href="https://www.youtube.com/@MountZionPrayerMinistryI-fz9ls/live"
+    target="_blank"
+    rel="noreferrer"
+    className="block rounded-md px-4 py-2 text-center font-medium text-white bg-[#FF0000] hover:opacity-90"
+  >
+    YouTube
+  </a>
+  <a
+    href="https://web.facebook.com/mzpmi"
+    target="_blank"
+    rel="noreferrer"
+    className="block rounded-md px-4 py-2 text-center font-medium text-white bg-[#1877F2] hover:opacity-90"
+  >
+    Facebook
+  </a>
+</div>
 
             <div className="mt-4 text-right">
               <button

@@ -21,14 +21,6 @@ export default function GiveModal({
         { k: "Bank name", v: "STANBIC-IBTC BANK PLC" },
       ],
     },
-    {
-      label: "Dollar Account",
-      fields: [
-        { k: "Account number", v: "" }, // fill later
-        { k: "Account name", v: "" },
-        { k: "Bank name", v: "" },
-      ],
-    },
   ];
 
   function copy(text: string) {

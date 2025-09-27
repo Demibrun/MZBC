@@ -18,10 +18,10 @@ export default async function AboutPage() {
 
   const groupsMeta = [
     { key: "women", title: "Women of Zion" },
-    { key: "beacons", title: "Beacons" },
+    { key: "beacons", title: "Beacons(Youth)" },
     { key: "men", title: "Men of Valor" },
     { key: "heritage", title: "Heritage (Children)" },
-    { key: "champions", title: "Champions (Teens/Youth)" },
+    { key: "champions", title: "Champions (Teens)" },
   ] as const;
 
   const wantedKeys = groupsMeta.map((k) => k.key);
