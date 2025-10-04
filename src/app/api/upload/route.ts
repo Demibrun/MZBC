@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "../../_utils"; // <- path is correct from /api/media/upload
+import { requireAdmin } from "../_utils"; // <- path is correct from /api/media/upload
 import { v2 as cloudinary } from "cloudinary";
 import { mkdir, writeFile } from "fs/promises";
 import { randomUUID } from "crypto";
