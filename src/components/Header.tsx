@@ -146,7 +146,11 @@ export default function Header() {
               href="/testimonies"
               onClick={() => setOpen(false)}
             />
-            {/* Admin link removed from mobile drawer */}
+            <NavItem
+              label="Mama's Page"
+              href="/mama"
+              onClick={() => setOpen(false)}
+            />
           </ul>
         </nav>
       </aside>

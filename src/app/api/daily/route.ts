@@ -1,104 +1,60 @@
-// src/app/api/daily/route.ts
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
-import { DailySection } from "@/lib/models";
+import DailySection from "@/lib/models/DailySection";
 import { requireAdmin } from "../_utils";
 
-/**
- * GET:
- *  - /api/daily?section=wordOfDay|prophetic|sundaySchool|devotional|homecare
- *  - If no section given, returns all sections (each with items[])
- */
 export async function GET(req: Request) {
   await dbConnect();
-
   const { searchParams } = new URL(req.url);
-  const section = searchParams.get("section");
+  const section = searchParams.get("section"); // "sundaySchool", etc.
 
   if (section) {
-    const doc =
-      (await DailySection.findOne({ key: section }).lean().exec()) || null;
-    return NextResponse.json({
-      section: {
-        key: section,
-        items: doc?.items || [],
-      },
-    });
+    const doc = await DailySection.findOne({ key: section }).lean().exec();
+    return NextResponse.json({ section: { key: section, items: doc?.items ?? [] } });
   }
 
-  // all sections
-  const keys = ["wordOfDay", "prophetic", "sundaySchool", "devotional", "homecare"] as const;
-  const docs = await DailySection.find({ key: { $in: keys } }).lean().exec();
-  const byKey = Object.fromEntries(docs.map((d: any) => [d.key, d]));
-  return NextResponse.json({
-    sections: {
-      wordOfDay: { items: byKey["wordOfDay"]?.items || [] },
-      prophetic: { items: byKey["prophetic"]?.items || [] },
-      sundaySchool: { items: byKey["sundaySchool"]?.items || [] },
-      devotional: { items: byKey["devotional"]?.items || [] },
-      homecare: { items: byKey["homecare"]?.items || [] },
-    },
-  });
+  // (optional) full payload for all sections if you need it elsewhere
+  const all = await DailySection.find({}).lean().exec();
+  return NextResponse.json({ sections: all });
 }
 
-/**
- * POST (admin): add entry to a section
- * body: { section: "wordOfDay"|"prophetic"|..., entry: { date?, title, subtitle?, text } }
- */
-export async function POST(req: Request) {
-  const notAdmin = requireAdmin();
+export async function PUT(req: Request) {
+  const notAdmin = await requireAdmin();
   if (notAdmin) return notAdmin;
 
   await dbConnect();
+
+  // payload can be { section:"sundaySchool", item: {...} } to append
+  // or { section:"sundaySchool", items:[...] } to replace list entirely
   const body = await req.json();
-  const section = body?.section;
-  const entry = body?.entry;
-
-  if (!section || !entry?.title || !entry?.text) {
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  const section = String(body.section || "");
+  if (!section) {
+    return NextResponse.json({ error: "Missing section" }, { status: 400 });
   }
 
-  const doc =
-    (await DailySection.findOne({ key: section }).exec()) ||
-    (await DailySection.create({ key: section, items: [] }));
+  // append a single item (common case from Admin)
+  if (body.item) {
+    await DailySection.updateOne(
+      { key: section },
+      { $push: { items: body.item } },
+      { upsert: true }
+    ).exec();
 
-  // newest on top
-  doc.items.unshift({
-    date: entry.date || "",
-    title: entry.title,
-    subtitle: entry.subtitle || "",
-    text: entry.text,
-  });
-
-  await doc.save();
-  return NextResponse.json({ ok: true });
-}
-
-/**
- * DELETE (admin): remove one entry by id from a section
- *  /api/daily?section=...&id=...
- */
-export async function DELETE(req: Request) {
-  const notAdmin = requireAdmin();
-  if (notAdmin) return notAdmin;
-
-  await dbConnect();
-
-  const { searchParams } = new URL(req.url);
-  const section = searchParams.get("section");
-  const id = searchParams.get("id");
-
-  if (!section || !id) {
-    return NextResponse.json({ error: "Missing section or id" }, { status: 400 });
+    return NextResponse.json({ ok: true });
   }
 
-  const doc = await DailySection.findOne({ key: section }).exec();
-  if (!doc) return NextResponse.json({ ok: true }); // nothing to delete
+  // replace all items (less common)
+  if (Array.isArray(body.items)) {
+    await DailySection.updateOne(
+      { key: section },
+      { $set: { items: body.items } },
+      { upsert: true }
+    ).exec();
 
-  doc.items = doc.items.filter((x: any) => String(x._id) !== String(id));
-  await doc.save();
+    return NextResponse.json({ ok: true });
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 }

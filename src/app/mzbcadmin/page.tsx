@@ -37,6 +37,174 @@ async function api<T = any>(url: string, init?: RequestInit): Promise<T> {
   }
 }
 
+// >>> ADDED: SundaySchoolQuickAdd — inline helper just for Sunday School media
+function SundaySchoolQuickAdd({ onSaved }: { onSaved: () => void }) {
+  const [date, setDate] = useState("");
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [text, setText] = useState("");
+
+  type MediaMode = "none" | "youtube" | "audio" | "video";
+  const [mode, setMode] = useState<MediaMode>("none");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function uploadToCloudinary(kind: "audio" | "video") {
+    if (!file) throw new Error("Choose a file");
+    const fd = new FormData();
+    fd.append("kind", kind);
+    fd.append("title", title || "Sunday School media");
+    fd.append("file", file);
+    const res = await fetch("/api/media/upload", {
+      method: "POST",
+      body: fd,
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      throw new Error(msg || "Upload failed");
+    }
+    return res.json() as Promise<{ url: string; thumbnail?: string }>;
+  }
+
+  async function save() {
+    try {
+      setSaving(true);
+
+      let mediaKind: "youtube" | "audio" | "video" | null = null;
+      let mediaUrl = "";
+      let thumbnail: string | undefined;
+
+      if (mode === "youtube") {
+        if (!youtubeUrl.trim()) throw new Error("Enter a YouTube link or ID");
+        mediaKind = "youtube";
+        mediaUrl = youtubeUrl.trim();
+      } else if (mode === "audio" || mode === "video") {
+        const up = await uploadToCloudinary(mode);
+        mediaKind = mode;
+        mediaUrl = up.url;
+        thumbnail = up.thumbnail;
+      } else {
+        mediaKind = null;
+      }
+
+      await api("/api/daily", {
+        method: "POST",
+        body: JSON.stringify({
+          section: "sundaySchool",
+          entry: {
+            date: date || undefined,
+            title,
+            subtitle: subtitle || undefined,
+            text,
+            mediaKind,
+            mediaUrl,
+            mediaTitle: title,
+            thumbnail,
+          },
+        }),
+      });
+
+      // reset small fields
+      setDate(""); setTitle(""); setSubtitle(""); setText("");
+      setMode("none"); setYoutubeUrl(""); setFile(null);
+
+      onSaved?.();
+      alert("Saved to Sunday School");
+    } catch (e: any) {
+      alert(e?.message || "Could not save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border bg-white p-5">
+      <h2 className="text-xl font-bold mb-3">Sunday School — Quick Add (Text + Media)</h2>
+
+      <div className="grid md:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-sm font-medium">Date (optional)</span>
+          <input
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="mt-1 w-full rounded border px-3 py-2"
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">Title</span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1 w-full rounded border px-3 py-2"
+            placeholder="Lesson title"
+          />
+        </label>
+      </div>
+
+      <label className="block mt-3">
+        <span className="text-sm font-medium">Subtitle (optional)</span>
+        <input
+          value={subtitle}
+          onChange={(e) => setSubtitle(e.target.value)}
+          className="mt-1 w-full rounded border px-3 py-2"
+        />
+      </label>
+
+      <label className="block mt-3">
+        <span className="text-sm font-medium">Text</span>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="mt-1 w-full rounded border px-3 py-2 min-h-[140px]"
+        />
+      </label>
+
+      <div className="mt-4 grid gap-2">
+        <span className="text-sm font-medium">Media (optional)</span>
+        <div className="flex flex-wrap gap-2">
+          {(["none", "youtube", "audio", "video"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`px-3 py-1.5 rounded border ${mode === m ? "bg-black/5" : ""}`}
+            >
+              {m === "none" ? "Text only" : m[0].toUpperCase() + m.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {mode === "youtube" && (
+          <input
+            className="border rounded p-2"
+            placeholder="Paste YouTube link or ID"
+            value={youtubeUrl}
+            onChange={(e) => setYoutubeUrl(e.target.value)}
+          />
+        )}
+
+        {(mode === "audio" || mode === "video") && (
+          <input
+            type="file"
+            accept={mode === "audio" ? "audio/*" : "video/*"}
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+          />
+        )}
+      </div>
+
+      <button
+        onClick={save}
+        disabled={saving || !title.trim()}
+        className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white disabled:opacity-50"
+      >
+        {saving ? "Saving…" : "Save Sunday School Entry"}
+      </button>
+    </div>
+  );
+}
+
 const TABS = [
   "Zion Daily",
   "Testimonies",
@@ -47,6 +215,7 @@ const TABS = [
   "Units",
   "Ministry Groups",
   "Media",
+  "Mama’s Section",
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -95,85 +264,123 @@ export default function Admin() {
   }
 
   /** ---------------- Zion Daily ---------------- */
-  type Entry = {
-    _id?: string;
-    date?: string;
-    title: string;
-    subtitle?: string;
-    text: string;
-  };
-  type SectionKey =
-    | "wordOfDay"
-    | "prophetic"
-    | "sundaySchool"
-    | "devotional"
-    | "homecare";
-  const [zdSection, setZdSection] = useState<SectionKey>("wordOfDay");
-  const [zdDate, setZdDate] = useState("");
-  const [zdTitle, setZdTitle] = useState("");
-  const [zdSubtitle, setZdSubtitle] = useState("");
-  const [zdText, setZdText] = useState("");
-  const [historySection, setHistorySection] =
-    useState<SectionKey>("wordOfDay");
-  const [history, setHistory] = useState<Entry[]>([]);
-  async function loadHistory() {
-    try {
-      const d = await api<{ section?: { items?: Entry[] } }>(
-        `/api/daily?section=${historySection}`
-      );
-      setHistory(d?.section?.items || []);
-    } catch {
-      setHistory([]);
-    }
-  }
-  useEffect(() => {
-    if (authed && tab === "Zion Daily") loadHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authed, tab, historySection]);
+type Entry = {
+  _id?: string;
+  date?: string;
+  title: string;
+  subtitle?: string;
+  text: string;
+  // media (used only if section === "sundaySchool")
+  mediaKind?: "youtube" | "audio" | "video" | null;
+  mediaUrl?: string;
+  mediaTitle?: string;
+  thumbnail?: string;
+};
+type SectionKey = "wordOfDay" | "prophetic" | "sundaySchool" | "devotional" | "homecare";
 
-  async function addZionDaily() {
-    if (!zdTitle || !zdText) return alert("Title and text are required");
-    setBusy(true);
-    try {
-      await api("/api/daily", {
-        method: "POST",
-        body: JSON.stringify({
-          section: zdSection,
-          entry: {
-            date: zdDate || undefined,
-            title: zdTitle,
-            subtitle: zdSubtitle || undefined,
-            text: zdText,
-          },
-        }),
-      });
-      setZdDate("");
-      setZdTitle("");
-      setZdSubtitle("");
-      setZdText("");
-      if (historySection === zdSection) loadHistory();
-      done("Zion Daily added");
-    } catch (err: any) {
-      alert(err?.message || "Save failed");
-    } finally {
-      setBusy(false);
-    }
+const [zdSection, setZdSection] = useState<SectionKey>("wordOfDay");
+const [zdDate, setZdDate] = useState("");
+const [zdTitle, setZdTitle] = useState("");
+const [zdSubtitle, setZdSubtitle] = useState("");
+const [zdText, setZdText] = useState("");
+
+// media for sunday school only
+const [zdMediaKind, setZdMediaKind] = useState<"youtube" | "audio" | "video" | "">("");
+const [zdMediaUrl, setZdMediaUrl] = useState("");
+const [zdMediaTitle, setZdMediaTitle] = useState("");
+const [zdThumb, setZdThumb] = useState("");
+
+const [historySection, setHistorySection] = useState<SectionKey>("wordOfDay");
+const [history, setHistory] = useState<Entry[]>([]);
+
+async function loadHistory() {
+  try {
+    const d = await api<{ section?: { items?: Entry[] } }>(`/api/daily?section=${historySection}`);
+    setHistory(d?.section?.items || []);
+  } catch {
+    setHistory([]);
   }
-  async function deleteZionDaily(id: string) {
-    if (!confirm("Delete this entry?")) return;
-    setBusy(true);
-    try {
-      await api(`/api/daily?section=${historySection}&id=${id}`, {
-        method: "DELETE",
-      });
-      loadHistory();
-      done("Deleted");
-    } catch (err: any) {
-      alert(err?.message || "Delete failed");
-    } finally {
-      setBusy(false);
-    }
+}
+useEffect(() => {
+  if (authed && tab === "Zion Daily") loadHistory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [authed, tab, historySection]);
+
+async function addZionDaily() {
+  if (!zdTitle || !zdText) return alert("Title and text required");
+  setBusy(true);
+  try {
+    await api("/api/daily", {
+      method: "POST",
+      body: JSON.stringify({
+        section: zdSection,
+        entry: {
+          date: zdDate || undefined,
+          title: zdTitle,
+          subtitle: zdSubtitle || undefined,
+          text: zdText,
+          // include media ONLY for sundaySchool
+          ...(zdSection === "sundaySchool"
+            ? {
+                mediaKind: zdMediaKind || null,
+                mediaUrl: zdMediaUrl || "",
+                mediaTitle: zdMediaTitle || "",
+                thumbnail: zdThumb || "",
+              }
+            : {}),
+        },
+      }),
+    });
+    setZdDate(""); setZdTitle(""); setZdSubtitle(""); setZdText("");
+    setZdMediaKind(""); setZdMediaUrl(""); setZdMediaTitle(""); setZdThumb("");
+    if (historySection === zdSection) loadHistory();
+    done("Zion Daily added");
+  } catch (err: any) {
+    alert(err?.message || "Save failed");
+  } finally {
+    setBusy(false);
   }
+}
+
+async function deleteZionDaily(id: string) {
+  if (!confirm("Delete this entry?")) return;
+  setBusy(true);
+  try {
+    await api(`/api/daily?section=${historySection}&id=${id}`, { method: "DELETE" });
+    loadHistory();
+    done("Deleted");
+  } catch (err: any) {
+    alert(err?.message || "Delete failed");
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderMediaPreview(e: Entry) {
+  if (!e.mediaKind || !e.mediaUrl) return null;
+  if (e.mediaKind === "youtube") {
+    const id = e.mediaUrl.includes("http")
+      ? new URL(e.mediaUrl).searchParams.get("v") || e.mediaUrl.split("/").pop() || e.mediaUrl
+      : e.mediaUrl;
+    return (
+      <iframe
+        className="mt-2 aspect-video w-full rounded border"
+        src={`https://www.youtube.com/embed/${id}`}
+        title={e.mediaTitle || e.title}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+  if (e.mediaKind === "audio") {
+    return <audio className="mt-2 w-full" controls src={e.mediaUrl} />;
+  }
+  if (e.mediaKind === "video") {
+    return <video className="mt-2 w-full rounded" controls src={e.mediaUrl} />;
+  }
+  return null;
+}
+
 
   /** ---------------- Testimonies ---------------- */
   type Testimony = {
@@ -237,6 +444,59 @@ export default function Admin() {
       setBusy(false);
     }
   }
+
+  /** ---------------- Mama’s Section (YouTube only) ---------------- */
+type MamaItem = { _id: string; title?: string; videoId: string };
+const [mamaTitle, setMamaTitle] = useState("");
+const [mamaUrl, setMamaUrl] = useState("");
+const [mamas, setMamas] = useState<MamaItem[]>([]);
+
+async function loadMamas() {
+  try {
+    const d = await api<{ items?: MamaItem[] }>("/api/mama");
+    setMamas(d?.items || []);
+  } catch {
+    setMamas([]);
+  }
+}
+
+useEffect(() => {
+  if (authed && tab === "Mama’s Section") loadMamas();
+}, [authed, tab]);
+
+async function addMama() {
+  if (!mamaUrl) return alert("Enter a YouTube URL or video ID");
+  setBusy(true);
+  try {
+    await api("/api/mama", {
+      method: "POST",
+      body: JSON.stringify({ title: mamaTitle, youtube: mamaUrl }),
+    });
+    setMamaTitle("");
+    setMamaUrl("");
+    loadMamas();
+    done("Added");
+  } catch (e: any) {
+    alert(e?.message || "Failed");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function delMama(id: string) {
+  if (!confirm("Delete?")) return;
+  setBusy(true);
+  try {
+    await api(`/api/mama?id=${id}`, { method: "DELETE" });
+    loadMamas();
+    done("Deleted");
+  } catch (e: any) {
+    alert(e?.message || "Failed");
+  } finally {
+    setBusy(false);
+  }
+}
+
 
   /** ---------------- Prayer Points ---------------- */
   type PP = { _id: string; title: string; body: string };
@@ -658,120 +918,160 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Zion Daily */}
+     {/* Zion Daily */}
       {tab === "Zion Daily" && (
-        <section className="grid gap-4">
-          <div className="rounded-xl border bg-white p-5">
-            <h2 className="text-xl font-bold mb-3">Add New Entry</h2>
-            <div className="grid md:grid-cols-2 gap-3">
-              <label className="block">
-                <span className="text-sm font-medium">Section</span>
-                <select
-                  value={zdSection}
-                  onChange={(e) =>
-                    setZdSection(e.target.value as SectionKey)
-                  }
-                  className="mt-1 w-full rounded border px-3 py-2"
-                >
-                  <option value="wordOfDay">Word of the Day</option>
-                  <option value="prophetic">Prophetic Declaration</option>
-                  <option value="sundaySchool">Sunday School</option>
-                  <option value="devotional">Daily Devotional</option>
-                  <option value="homecare">Homecare Fellowship</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium">Date (optional)</span>
-                <input
-                  value={zdDate}
-                  onChange={(e) => setZdDate(e.target.value)}
-                  className="mt-1 w-full rounded border px-3 py-2"
-                />
-              </label>
-            </div>
-            <div className="grid md:grid-cols-2 gap-3 mt-3">
-              <label className="block">
-                <span className="text-sm font-medium">Title</span>
-                <input
-                  value={zdTitle}
-                  onChange={(e) => setZdTitle(e.target.value)}
-                  className="mt-1 w-full rounded border px-3 py-2"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium">Subtitle</span>
-                <input
-                  value={zdSubtitle}
-                  onChange={(e) => setZdSubtitle(e.target.value)}
-                  className="mt-1 w-full rounded border px-3 py-2"
-                />
-              </label>
-            </div>
-            <label className="block mt-3">
-              <span className="text-sm font-medium">Text</span>
-              <textarea
-                value={zdText}
-                onChange={(e) => setZdText(e.target.value)}
-                className="mt-1 w-full rounded border px-3 py-2 min-h-[140px]"
-              />
-            </label>
-            <button
-              disabled={busy}
-              onClick={addZionDaily}
-              className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
-            >
-              {busy ? "Saving…" : "Add Entry"}
-            </button>
-          </div>
+  <section className="grid gap-4">
+    {/* >>> ADDED: Sunday School quick uploader */}
+    {/* <SundaySchoolQuickAdd onSaved={loadHistory} /> */}
 
-          <div className="rounded-xl border bg-white p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-bold">History</h2>
-              <label className="text-sm">
-                <span className="mr-2">Section:</span>
-                <select
-                  value={historySection}
-                  onChange={(e) =>
-                    setHistorySection(e.target.value as SectionKey)
-                  }
-                  className="rounded border px-3 py-2"
-                >
-                  <option value="wordOfDay">Word of the Day</option>
-                  <option value="prophetic">Prophetic Declaration</option>
-                  <option value="sundaySchool">Sunday School</option>
-                  <option value="devotional">Daily Devotional</option>
-                  <option value="homecare">Homecare Fellowship</option>
-                </select>
-              </label>
-            </div>
-            <div className="grid gap-3">
-              {history.length === 0 && <p>No entries yet.</p>}
-              {history.map((h) => (
-                <div key={h._id} className="border rounded p-3">
-                  <div className="font-semibold">{h.title}</div>
-                  {h.subtitle && (
-                    <div className="text-xs text-gray-600">{h.subtitle}</div>
-                  )}
-                  {h.date && (
-                    <div className="text-xs text-gray-600 mt-1">{h.date}</div>
-                  )}
-                  <div className="whitespace-pre-wrap text-sm mt-2">
-                    {h.text}
-                  </div>
-                  {h._id && (
-                    <button
-                      onClick={() => deleteZionDaily(h._id!)}
-                      className="mt-2 text-red-600 underline"
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+    {/* Existing: Add New Entry (kept) */}
+    <div className="rounded-xl border bg-white p-5">
+      <h2 className="text-xl font-bold mb-3">Add New Entry</h2>
+
+      <div className="grid md:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-sm font-medium">Section</span>
+          <select
+            value={zdSection}
+            onChange={(e) => setZdSection(e.target.value as SectionKey)}
+            className="mt-1 w-full rounded border px-3 py-2"
+          >
+            <option value="wordOfDay">Word of the Day</option>
+            <option value="prophetic">Prophetic Declaration</option>
+            <option value="sundaySchool">Sunday School</option>
+            <option value="devotional">Daily Devotional</option>
+            <option value="homecare">Homecare Fellowship</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">Date (optional)</span>
+          <input
+            value={zdDate}
+            onChange={(e) => setZdDate(e.target.value)}
+            className="mt-1 w-full rounded border px-3 py-2"
+          />
+        </label>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-3 mt-3">
+        <label className="block">
+          <span className="text-sm font-medium">Title</span>
+          <input
+            value={zdTitle}
+            onChange={(e) => setZdTitle(e.target.value)}
+            className="mt-1 w-full rounded border px-3 py-2"
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">Subtitle</span>
+          <input
+            value={zdSubtitle}
+            onChange={(e) => setZdSubtitle(e.target.value)}
+            className="mt-1 w-full rounded border px-3 py-2"
+          />
+        </label>
+      </div>
+
+      <label className="block mt-3">
+        <span className="text-sm font-medium">Text</span>
+        <textarea
+          value={zdText}
+          onChange={(e) => setZdText(e.target.value)}
+          className="mt-1 w-full rounded border px-3 py-2 min-h-[140px]"
+        />
+      </label>
+
+      {/* Media inputs ONLY for Sunday School */}
+      {zdSection === "sundaySchool" && (
+        <div className="mt-4 grid md:grid-cols-3 gap-3 border-t pt-4">
+          <label className="block">
+            <span className="text-sm font-medium">Media Kind</span>
+            <select
+              value={zdMediaKind}
+              onChange={(e) => setZdMediaKind(e.target.value as any)}
+              className="mt-1 w-full rounded border px-3 py-2"
+            >
+              <option value="">None</option>
+              <option value="youtube">YouTube (Video ID or URL)</option>
+              <option value="audio">Audio URL</option>
+              <option value="video">Video URL</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium">Media URL / Video ID</span>
+            <input
+              value={zdMediaUrl}
+              onChange={(e) => setZdMediaUrl(e.target.value)}
+              className="mt-1 w-full rounded border px-3 py-2"
+              placeholder="YouTube ID or full URL, or direct file URL"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium">Media Title (optional)</span>
+            <input
+              value={zdMediaTitle}
+              onChange={(e) => setZdMediaTitle(e.target.value)}
+              className="mt-1 w-full rounded border px-3 py-2"
+            />
+          </label>
+        </div>
       )}
+
+      <button
+        disabled={busy}
+        onClick={addZionDaily}
+        className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
+      >
+        {busy ? "Saving…" : "Add Entry"}
+      </button>
+    </div>
+
+    <div className="rounded-xl border bg-white p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xl font-bold">History</h2>
+        <label className="text-sm">
+          <span className="mr-2">Section:</span>
+          <select
+            value={historySection}
+            onChange={(e) => setHistorySection(e.target.value as SectionKey)}
+            className="rounded border px-3 py-2"
+          >
+            <option value="wordOfDay">Word of the Day</option>
+            <option value="prophetic">Prophetic Declaration</option>
+            <option value="sundaySchool">Sunday School</option>
+            <option value="devotional">Daily Devotional</option>
+            <option value="homecare">Homecare Fellowship</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="grid gap-3">
+        {history.length === 0 && <p>No entries yet.</p>}
+        {history.map((h) => (
+          <div key={h._id} className="border rounded p-3">
+            <div className="font-semibold">{h.title}</div>
+            {h.subtitle && <div className="text-xs text-gray-600">{h.subtitle}</div>}
+            {h.date && <div className="text-xs text-gray-600 mt-1">{h.date}</div>}
+            <div className="whitespace-pre-wrap text-sm mt-2">{h.text}</div>
+
+            {/* Media preview if sundaySchool media present */}
+            {renderMediaPreview(h)}
+
+            {h._id && (
+              <button
+                onClick={() => deleteZionDaily(h._id!)}
+                className="mt-2 text-red-600 underline"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
 
       {/* Testimonies */}
       {tab === "Testimonies" && (
@@ -837,6 +1137,72 @@ export default function Admin() {
           </div>
         </section>
       )}
+
+{/* Mama’s Section */}
+{tab === "Mama’s Section" && (
+  <section className="grid gap-4">
+    <div className="rounded-xl border bg-white p-5">
+      <h2 className="text-xl font-bold mb-3">Add YouTube Video</h2>
+      <div className="grid md:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-sm font-medium">Title (optional)</span>
+          <input
+            value={mamaTitle}
+            onChange={(e) => setMamaTitle(e.target.value)}
+            className="mt-1 w-full rounded border px-3 py-2"
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">YouTube URL or Video ID</span>
+          <input
+            value={mamaUrl}
+            onChange={(e) => setMamaUrl(e.target.value)}
+            placeholder="https://youtube.com/watch?v=XXXXXXXXXXX or XXXXXXX..."
+            className="mt-1 w-full rounded border px-3 py-2"
+          />
+        </label>
+      </div>
+      <button
+        disabled={busy}
+        onClick={addMama}
+        className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
+      >
+        {busy ? "Adding…" : "Add"}
+      </button>
+    </div>
+
+    <div className="rounded-xl border bg-white p-5">
+      <h2 className="text-xl font-bold mb-3">List</h2>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {mamas.length === 0 && <p>No videos yet.</p>}
+        {mamas.map((v) => (
+          <div key={v._id} className="border rounded p-3">
+            {v.title && <div className="font-semibold mb-2">{v.title}</div>}
+            <div className="aspect-video w-full overflow-hidden rounded">
+              <iframe
+                className="h-full w-full"
+                src={`https://www.youtube.com/embed/${v.videoId}`}
+                title={v.title || "Mama video"}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+              />
+            </div>
+            <div className="mt-2 text-xs text-gray-600 break-all">
+              ID: {v.videoId}
+            </div>
+            <button
+              onClick={() => delMama(v._id)}
+              className="mt-2 text-red-600 underline"
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
 
       {/* Prayer Points */}
       {tab === "Prayer Points" && (

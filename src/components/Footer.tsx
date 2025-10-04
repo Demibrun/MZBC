@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FaInstagram, FaFacebook, FaYoutube } from "react-icons/fa";
-import { SiZoom } from "react-icons/si"; // ✅ Zoom icon
+import { SiZoom } from "react-icons/si";
+import { createPortal } from "react-dom";
 
 const links = [
   { label: "Home", href: "/" },
@@ -16,6 +17,7 @@ const links = [
   { label: "Deliverance", href: "/deliverance" },
   { label: "About", href: "/about" },
   { label: "Media", href: "/media" },
+  { label: "Mama's Page", href: "/mama" },
 ];
 
 export default function Footer() {
@@ -31,14 +33,6 @@ export default function Footer() {
       ],
     },
   ];
-
-  function copy(text: string) {
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(
-      () => alert("Copied!"),
-      () => alert("Could not copy. Please copy manually.")
-    );
-  }
 
   return (
     <footer className="mt-16 border-t bg-white">
@@ -86,6 +80,7 @@ export default function Footer() {
               target="_blank"
               rel="noreferrer"
               aria-label="Zoom"
+              title="Zoom (ID: 54521258889, Passcode: 06KLX)"
             >
               <SiZoom size={24} color="#2D8CFF" />
             </a>
@@ -94,6 +89,7 @@ export default function Footer() {
           {/* Give button */}
           <div className="mt-4">
             <button
+              type="button"
               onClick={() => setGiveOpen(true)}
               className="text-sm font-semibold text-[var(--mz-deep-blue)] hover:underline"
             >
@@ -113,8 +109,109 @@ export default function Footer() {
       </div>
 
       <div className="border-t py-4 text-center text-xs text-[var(--mz-dark)]/60">
-        © {new Date().getFullYear()} Mount Zion Prayer Ministry Int’l — All rights reserved.
+        © {new Date().getFullYear()} Mount Zion Prayer Ministry Int’l — All
+        rights reserved.
       </div>
+
+      {/* Modal (rendered in a portal so it always appears above everything) */}
+      <GiveModal open={giveOpen} onClose={() => setGiveOpen(false)} />
     </footer>
+  );
+}
+
+/* ---------- Modal via Portal (prevents stacking/overflow issues) ---------- */
+
+function GiveModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const accounts = [
+    {
+      label: "Naira Account",
+      fields: [
+        { k: "Account number", v: "9200927934" },
+        { k: "Account name", v: "MOUNT ZION PRAYER MINISTRY INTERNATIONAL" },
+        { k: "Bank name", v: "STANBIC-IBTC BANK PLC" },
+      ],
+    },
+  ];
+
+  function copy(text: string) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(
+      () => alert("Copied!"),
+      () => alert("Could not copy. Please copy manually.")
+    );
+  }
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] grid place-items-center bg-black/50"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="w-[92vw] max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+        <h3 className="text-xl font-bold text-[var(--mz-deep-blue)]">
+          Give to the Mission
+        </h3>
+        <p className="text-sm text-[var(--mz-dark)]/70 mt-1 mb-4">
+          Church account details
+        </p>
+
+        <div className="space-y-4">
+          {accounts.map((acc, i) => (
+            <div
+              key={i}
+              className="rounded-xl border border-black/10 p-4 bg-[var(--mz-light)]"
+            >
+              <p className="font-semibold text-[var(--mz-deep-blue)] mb-2">
+                {acc.label}
+              </p>
+
+              <dl className="space-y-2">
+                {acc.fields.map((f, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <div>
+                      <dt className="text-xs text-[var(--mz-dark)]/70">{f.k}</dt>
+                      <dd className="text-sm font-medium text-[var(--mz-dark)] break-all">
+                        {f.v || <span className="text-gray-400">—</span>}
+                      </dd>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!f.v}
+                      onClick={() => copy(f.v)}
+                      className={`rounded-md border px-3 py-1 text-sm ${
+                        f.v
+                          ? "hover:bg-black/5"
+                          : "opacity-40 cursor-not-allowed"
+                      }`}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 text-right">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-black/5"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }

@@ -1,49 +1,118 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-type Entry = { _id?: string; date?: string; title: string; subtitle?: string; text: string };
-type ApiDaily = {
-  sections?: {
-    wordOfDay?: { items?: Entry[] };
-    prophetic?: { items?: Entry[] };
-    sundaySchool?: { items?: Entry[] };
-    devotional?: { items?: Entry[] };
-    homecare?: { items?: Entry[] };
-  };
+/** ---------- Types ---------- */
+type SectionKey = "wordOfDay" | "prophetic" | "sundaySchool" | "devotional" | "homecare";
+
+type Entry = {
+  _id?: string;
+  date?: string;
+  title: string;
+  subtitle?: string;
+  text: string;
+  // optional media (only meaningful for sundaySchool)
+  mediaKind?: "youtube" | "audio" | "video" | null;
+  mediaUrl?: string;
+  mediaTitle?: string;
+  thumbnail?: string;
 };
 
-const FALLBACK: Required<ApiDaily> = {
-  sections: {
-    wordOfDay: { items: [{ date: "Today", title: "Word of the Day", subtitle: "Psalm 3:3", text: "But thou, O LORD, art a shield for me; my glory, and the lifter up of mine head." }] },
-    prophetic: { items: [{ date: "Today", title: "Daily Declarations", text: "Declare the Word of God daily." }] },
-    sundaySchool: { items: [{ date: "This Sunday", title: "Sunday School", subtitle: "Faith & Obedience", text: "Lesson: living faith that obeys God promptly." }] },
-    devotional: { items: [{ date: "Today", title: "Daily Devotional", text: "God is faithful in every season." }] },
-    homecare: { items: [{ date: "This Week", title: "Homecare Fellowship", subtitle: "See ushers for nearest center.", text: "Care for one another (Gal. 6:2)." }] },
-  },
+type ApiDailyOne = { section?: { key: SectionKey; items?: Entry[] } };
+
+const TITLES: Record<SectionKey, string> = {
+  wordOfDay: "Word of the Day",
+  prophetic: "Prophetic Declaration",
+  sundaySchool: "Sunday School",
+  devotional: "Daily Devotional",
+  homecare: "Homecare Fellowship",
 };
 
+const FALLBACK_ITEMS: Record<SectionKey, Entry[]> = {
+  wordOfDay: [
+    {
+      date: "Today",
+      title: "Word of the Day",
+      subtitle: "Psalm 3:3",
+      text: "But thou, O LORD, art a shield for me; my glory, and the lifter up of mine head.",
+    },
+  ],
+  prophetic: [{ date: "Today", title: "Daily Declarations", text: "Declare the Word of God daily." }],
+  sundaySchool: [
+    {
+      date: "This Sunday",
+      title: "Sunday School",
+      subtitle: "Faith & Obedience",
+      text: "Lesson: living faith that obeys God promptly.",
+    },
+  ],
+  devotional: [{ date: "Today", title: "Daily Devotional", text: "God is faithful in every season." }],
+  homecare: [
+    {
+      date: "This Week",
+      title: "Homecare Fellowship",
+      subtitle: "See ushers for nearest center.",
+      text: "Care for one another (Gal. 6:2).",
+    },
+  ],
+};
+
+/** ---------- Page ---------- */
 export default function ZionDailyPage() {
-  const [data, setData] = useState<ApiDaily | null>(null);
-  const [open, setOpen] = useState<{ key: keyof NonNullable<ApiDaily["sections"]>; index: number } | null>(null);
+  const [sections, setSections] = useState<
+    { key: SectionKey; title: string; items: Entry[] }[]
+  >(() =>
+    (Object.keys(TITLES) as SectionKey[]).map((k) => ({
+      key: k,
+      title: TITLES[k],
+      items: FALLBACK_ITEMS[k],
+    }))
+  );
 
+  const [open, setOpen] = useState<{ key: SectionKey; index: number } | null>(null);
+
+  // Load all sections individually to match /api/daily?section=...
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
+    const keys: SectionKey[] = ["wordOfDay", "prophetic", "sundaySchool", "devotional", "homecare"];
+
     (async () => {
       try {
-        const res = await fetch("/api/daily", { cache: "no-store" });
-        if (!res.ok) throw new Error();
-        const json = (await res.json()) as ApiDaily;
-        if (mounted) setData(json);
+        const results = await Promise.allSettled(
+          keys.map(async (key) => {
+            const res = await fetch(`/api/daily?section=${key}`, { cache: "no-store" });
+            if (!res.ok) throw new Error("Failed");
+            const json = (await res.json()) as ApiDailyOne;
+            const items = json?.section?.items ?? [];
+            return { key, items };
+          })
+        );
+
+        if (!alive) return;
+
+        const mapped = results.map((r, i) => {
+          const key = keys[i];
+          if (r.status === "fulfilled" && r.value && Array.isArray(r.value.items) && r.value.items.length) {
+            return { key, title: TITLES[key], items: r.value.items };
+          }
+          // fallback for empty/error
+          return { key, title: TITLES[key], items: FALLBACK_ITEMS[key] };
+        });
+
+        setSections(mapped);
       } catch {
-        if (mounted) setData(null);
+        // leave fallbacks on any global failure
       }
     })();
+
     return () => {
-      mounted = false;
+      alive = false;
     };
   }, []);
 
-  const sections = normalizeData(data);
+  const sectionByKey = useMemo(
+    () => new Map(sections.map((s) => [s.key, s] as const)),
+    [sections]
+  );
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
@@ -51,9 +120,7 @@ export default function ZionDailyPage() {
         <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--mz-primary-blue)] drop-shadow">
           Zion Daily
         </h1>
-        <p className="mt-1 text-[var(--mz-dark)]/70">
-          Tap any card to read or pick a previous day.
-        </p>
+        <p className="mt-1 text-[var(--mz-dark)]/70">Tap any card to read or pick a previous day.</p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -66,7 +133,7 @@ export default function ZionDailyPage() {
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-bold text-[var(--mz-deep-blue)]">{sec.title}</h2>
                 <button
-                  onClick={() => setOpen({ key: sec.key as any, index: 0 })}
+                  onClick={() => setOpen({ key: sec.key, index: 0 })}
                   className="rounded-lg px-3 py-1.5 text-sm font-medium text-white"
                   style={{ backgroundColor: "var(--mz-primary-blue)" }}
                 >
@@ -84,7 +151,7 @@ export default function ZionDailyPage() {
                   className="mt-1 w-full rounded-lg border border-black/10 bg-white px-3 py-2"
                   onChange={(e) => {
                     const idx = Number(e.target.value);
-                    if (!Number.isNaN(idx)) setOpen({ key: sec.key as any, index: idx });
+                    if (!Number.isNaN(idx)) setOpen({ key: sec.key, index: idx });
                   }}
                   value=""
                 >
@@ -108,7 +175,7 @@ export default function ZionDailyPage() {
           <div className="w-[92vw] max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-black/10">
             <div className="flex items-center justify-between px-5 py-4 border-b border-black/10">
               <h3 className="text-lg font-semibold text-[var(--mz-deep-blue)]">
-                {sectionsByKey(sections, open.key)?.items[open.index]?.title ?? "Details"}
+                {sectionByKey.get(open.key)?.items[open.index]?.title ?? "Details"}
               </h3>
               <button
                 onClick={() => setOpen(null)}
@@ -118,10 +185,12 @@ export default function ZionDailyPage() {
                 ✕
               </button>
             </div>
+
             <div className="px-5 py-4">
               {(() => {
-                const it = sectionsByKey(sections, open.key)?.items[open.index];
+                const it = sectionByKey.get(open.key)?.items[open.index];
                 if (!it) return <p className="text-sm text-gray-600">Not found.</p>;
+
                 return (
                   <>
                     {it.subtitle && (
@@ -130,6 +199,17 @@ export default function ZionDailyPage() {
                     <div className="mt-2 whitespace-pre-wrap leading-relaxed text-[var(--mz-dark)]">
                       {it.text}
                     </div>
+
+                    {/* Media ONLY makes sense for Sunday School */}
+                    {open.key === "sundaySchool" && it.mediaKind && it.mediaUrl ? (
+                      <div className="mt-4">
+                        <RenderMedia
+                          kind={it.mediaKind}
+                          url={it.mediaUrl}
+                          title={it.mediaTitle || it.title}
+                        />
+                      </div>
+                    ) : null}
                   </>
                 );
               })()}
@@ -141,20 +221,56 @@ export default function ZionDailyPage() {
   );
 }
 
-function normalizeData(api: ApiDaily | null): { key: string; title: string; items: Entry[] }[] {
-  const src = api?.sections || FALLBACK.sections;
-  const coerce = (arr?: Entry[]) =>
-    Array.isArray(arr) && arr.length ? arr : [{ title: "No content", text: "Content will appear here soon." }];
+/** ---------- Helpers ---------- */
+function RenderMedia({
+  kind,
+  url,
+  title,
+}: {
+  kind?: "youtube" | "audio" | "video" | null;
+  url?: string;
+  title?: string;
+}) {
+  if (!kind || !url) return null;
 
-  return [
-    { key: "wordOfDay", title: "Word of the Day", items: coerce(src.wordOfDay?.items) },
-    { key: "prophetic", title: "Prophetic Declaration", items: coerce(src.prophetic?.items) },
-    { key: "sundaySchool", title: "Sunday School", items: coerce(src.sundaySchool?.items) },
-    { key: "devotional", title: "Daily Devotional", items: coerce(src.devotional?.items) },
-    { key: "homecare", title: "Homecare Fellowship", items: coerce(src.homecare?.items) },
-  ];
+  if (kind === "youtube") {
+    const id = getYouTubeId(url);
+    if (!id) return null;
+    return (
+      <iframe
+        className="aspect-video w-full rounded border"
+        src={`https://www.youtube.com/embed/${id}`}
+        title={title || "Video"}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+
+  if (kind === "audio") {
+    return <audio className="w-full" controls src={url} />;
+  }
+
+  if (kind === "video") {
+    return <video className="w-full rounded" controls src={url} />;
+  }
+
+  return null;
 }
 
-function sectionsByKey(list: { key: string; title: string; items: Entry[] }[], key: any) {
-  return list.find((x) => x.key === key);
+function getYouTubeId(input: string): string | null {
+  try {
+    if (!input) return null;
+    if (!input.includes("http")) return input;
+    const u = new URL(input);
+    if (u.hostname.includes("youtu.be")) {
+      return u.pathname.replace("/", "") || null;
+    }
+    if (u.hostname.includes("youtube.com")) {
+      return u.searchParams.get("v") || null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
