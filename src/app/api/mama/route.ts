@@ -1,76 +1,76 @@
+// src/app/api/mama/route.ts
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import mongoose, { Schema, models } from "mongoose";
 import { dbConnect } from "@/lib/db";
-import MamaVideo from "@/lib/models/MamaVideo";
-import { requireAdmin } from "../_utils"; // <- api/_utils cookie guard
+import { requireAdmin } from "../_utils";
 
-function extractYouTubeId(input: string): string | null {
-  if (!input) return null;
-  // Already an 11-char ID?
-  if (/^[\w-]{11}$/.test(input)) return input.trim();
-
+function toYoutubeId(input: string): string {
+  if (!input) return "";
   try {
-    const u = new URL(input);
-    // youtu.be/<id>
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.split("/").filter(Boolean)[0];
-      return id && /^[\w-]{11}$/.test(id) ? id : null;
+    if (input.startsWith("http")) {
+      const u = new URL(input);
+      // standard watch?v=
+      const v = u.searchParams.get("v");
+      if (v) return v;
+      // youtu.be/ID
+      const last = u.pathname.split("/").filter(Boolean).pop() || "";
+      return last;
     }
-    // youtube.com/watch?v=<id>
-    const v = u.searchParams.get("v");
-    if (v && /^[\w-]{11}$/.test(v)) return v;
-    // youtube.com/embed/<id>
-    const parts = u.pathname.split("/").filter(Boolean);
-    const idx = parts.indexOf("embed");
-    if (idx >= 0 && parts[idx + 1] && /^[\w-]{11}$/.test(parts[idx + 1])) {
-      return parts[idx + 1];
-    }
+    return input; // already an ID
   } catch {
-    /* ignore */
+    return input;
   }
-  return null;
 }
 
-// GET: public list
+const MamaSchema = new Schema(
+  {
+    title: String,
+    videoId: { type: String, required: true },
+  },
+  { timestamps: true }
+);
+
+const Mama =
+  models.MamaVideo || mongoose.model("MamaVideo", MamaSchema);
+
+// GET list
 export async function GET() {
   await dbConnect();
-  const items = await MamaVideo.find({}).sort({ createdAt: -1 }).lean().exec();
+  const items = await Mama.find({}).sort({ createdAt: -1 }).lean().exec();
   return NextResponse.json({ items });
 }
 
-// POST: admin add
+// POST add (Admin)
 export async function POST(req: Request) {
-  const notAdmin = requireAdmin();
+  const notAdmin = await requireAdmin();
   if (notAdmin) return notAdmin;
 
   await dbConnect();
-  const body = await req.json();
-  const title = (body?.title || "").trim();
-  const raw = (body?.youtube || "").trim();
+  const body = await req.json().catch(() => ({}));
+  const title = body?.title || "";
+  const youtube = body?.youtube || "";
+  const videoId = toYoutubeId(youtube);
 
-  const videoId = extractYouTubeId(raw);
   if (!videoId) {
-    return NextResponse.json(
-      { error: "Provide a valid YouTube URL or video ID." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid YouTube URL/ID" }, { status: 400 });
   }
 
-  const doc = await MamaVideo.create({ title, videoId });
-  return NextResponse.json({ ok: true, item: { _id: doc._id, title, videoId } });
+  const doc = await Mama.create({ title, videoId });
+  return NextResponse.json({ ok: true, id: String(doc._id) });
 }
 
-// DELETE: admin remove ?id=<id>
+// DELETE (Admin)
 export async function DELETE(req: Request) {
-  const notAdmin = requireAdmin();
+  const notAdmin = await requireAdmin();
   if (notAdmin) return notAdmin;
 
   await dbConnect();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  await MamaVideo.deleteOne({ _id: id }).exec();
+  await Mama.deleteOne({ _id: new mongoose.Types.ObjectId(id) }).exec();
   return NextResponse.json({ ok: true });
 }
