@@ -1,6 +1,8 @@
 // src/app/mama/page.tsx
 export const dynamic = "force-dynamic";
-export const revalidate = 0; // disable caching
+
+export const revalidate = 0; // fully disable caching for this page
+
 
 // --- helpers ---------------------------------------------------------------
 
@@ -38,7 +40,13 @@ function getYouTubeId(input?: string | null): string | null {
 
 /** Normalize to [{ _id?, title?, videoId }] allowing legacy docs with only `url`. */
 function normalizeItems(raw: any): Array<{ _id?: string; title?: string; videoId: string }> {
-  const items = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
+
+  const items = Array.isArray(raw) ? raw
+            : Array.isArray(raw?.items) ? raw.items
+            : Array.isArray(raw?.data) ? raw.data
+            : [];
+
+
   return items
     .map((it: any) => {
       const id =
@@ -57,7 +65,9 @@ function normalizeItems(raw: any): Array<{ _id?: string; title?: string; videoId
 
 async function getData() {
   try {
-    // Relative fetch -> same host on Vercel (matches Media page behavior)
+
+    // Relative fetch ensures same host in prod, like your Media page
+
     const res = await fetch("/api/mama", {
       cache: "no-store",
       next: { revalidate: 0 },
