@@ -446,15 +446,63 @@ function renderMediaPreview(e: Entry) {
   }
 
   /** ---------------- Mama’s Section (YouTube only) ---------------- */
+
 type MamaItem = { _id: string; title?: string; videoId: string };
+
+// Accepts a full YouTube URL or a bare 11-char ID and returns the ID (or null)
+function ytId(input?: string | null) {
+  if (!input) return null;
+  const s = input.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+  try {
+    const u = new URL(s);
+    if (u.hostname.includes("youtu.be")) {
+      const id = u.pathname.split("/").filter(Boolean).at(-1);
+      return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+    }
+    if (u.hostname.includes("youtube.com")) {
+      const v = u.searchParams.get("v");
+      if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+      const parts = u.pathname.split("/").filter(Boolean);
+      const idx = parts.findIndex((p) => p === "embed");
+      if (idx >= 0) {
+        const id = parts[idx + 1];
+        return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+// Local state
 const [mamaTitle, setMamaTitle] = useState("");
 const [mamaUrl, setMamaUrl] = useState("");
 const [mamas, setMamas] = useState<MamaItem[]>([]);
 
+// Normalize any server response shape into [{ _id, title, videoId }]
+function normalizeMama(resp: any): MamaItem[] {
+  const src = Array.isArray(resp?.items)
+    ? resp.items
+    : Array.isArray(resp)
+    ? resp
+    : Array.isArray(resp?.data)
+    ? resp.data
+    : [];
+
+  return src
+    .map((it: any) => {
+      const id =
+        ytId(it?.videoId) || ytId(it?.url) || ytId(it?.link) || ytId(it?.youtube);
+      if (!id) return null;
+      return { _id: String(it?._id || id), title: it?.title || "", videoId: id };
+    })
+    .filter(Boolean) as MamaItem[];
+}
+
 async function loadMamas() {
   try {
-    const d = await api<{ items?: MamaItem[] }>("/api/mama");
-    setMamas(d?.items || []);
+    const d = await api<any>("/api/mama"); // server returns { items: [...] }
+    setMamas(normalizeMama(d));
   } catch {
     setMamas([]);
   }
@@ -465,7 +513,8 @@ useEffect(() => {
 }, [authed, tab]);
 
 async function addMama() {
-  if (!mamaUrl) return alert("Enter a YouTube URL or video ID");
+  if (!mamaUrl) return alert("Enter a YouTube URL or Video ID");
+  // We POST exactly what the API expects; it extracts/validates ID on the server.
   setBusy(true);
   try {
     await api("/api/mama", {
@@ -474,7 +523,7 @@ async function addMama() {
     });
     setMamaTitle("");
     setMamaUrl("");
-    loadMamas();
+    await loadMamas();
     done("Added");
   } catch (e: any) {
     alert(e?.message || "Failed");
@@ -487,8 +536,8 @@ async function delMama(id: string) {
   if (!confirm("Delete?")) return;
   setBusy(true);
   try {
-    await api(`/api/mama?id=${id}`, { method: "DELETE" });
-    loadMamas();
+    await api(`/api/mama?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    await loadMamas();
     done("Deleted");
   } catch (e: any) {
     alert(e?.message || "Failed");
@@ -496,7 +545,6 @@ async function delMama(id: string) {
     setBusy(false);
   }
 }
-
 
   /** ---------------- Prayer Points ---------------- */
   type PP = { _id: string; title: string; body: string };
@@ -1171,36 +1219,29 @@ async function delMama(id: string) {
       </button>
     </div>
 
-    <div className="rounded-xl border bg-white p-5">
-      <h2 className="text-xl font-bold mb-3">List</h2>
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {mamas.length === 0 && <p>No videos yet.</p>}
-        {mamas.map((v) => (
-          <div key={v._id} className="border rounded p-3">
-            {v.title && <div className="font-semibold mb-2">{v.title}</div>}
-            <div className="aspect-video w-full overflow-hidden rounded">
-              <iframe
-                className="h-full w-full"
-                src={`https://www.youtube.com/embed/${v.videoId}`}
-                title={v.title || "Mama video"}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                loading="lazy"
-              />
-            </div>
-            <div className="mt-2 text-xs text-gray-600 break-all">
-              ID: {v.videoId}
-            </div>
-            <button
-              onClick={() => delMama(v._id)}
-              className="mt-2 text-red-600 underline"
-            >
-              Delete
-            </button>
-          </div>
-        ))}
+    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {mamas.length === 0 && <p>No videos yet.</p>}
+  {mamas.map((v) => (
+    <div key={v._id} className="border rounded p-3">
+      {v.title && <div className="font-semibold mb-2">{v.title}</div>}
+      <div className="aspect-video w-full overflow-hidden rounded">
+        <iframe
+          className="h-full w-full"
+          src={`https://www.youtube.com/embed/${v.videoId}`}
+          title={v.title || "Mama video"}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="lazy"
+        />
       </div>
+      <div className="mt-2 text-xs text-gray-600 break-all">ID: {v.videoId}</div>
+      <button onClick={() => delMama(v._id)} className="mt-2 text-red-600 underline">
+        Delete
+      </button>
     </div>
+  ))}
+</div>
+
   </section>
 )}
 
@@ -1635,77 +1676,69 @@ async function delMama(id: string) {
         )}
       </div>
 
-      <button
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            if (mKind === "youtube") {
-              if (!mUrl) return alert("Video ID required");
-              await api("/api/media", {
-                method: "POST",
-                body: JSON.stringify({
-                  kind: "youtube",
-                  title: mTitle,
-                  url: mUrl,
-                }),
-              });
-            } else {
-              // pick the input that stored a temporary ref on change
-              const input = document.querySelector(
-                mKind === "photo"
-                  ? 'input[type="file"][accept^="image"]'
-                  : 'input[type="file"][accept^="audio"]'
-              ) as HTMLInputElement & { _mzfile?: File };
+      
 
-              const file = input?._mzfile;
-              if (!file) return alert("Please choose a file to upload");
+<button
+  disabled={busy}
+  onClick={async () => {
+    setBusy(true);
+    try {
+      if (mKind === "youtube") {
+        if (!mUrl) return alert("Video ID required");
+        await api("/api/media", {
+          method: "POST",
+          body: JSON.stringify({
+            kind: "youtube",
+            title: mTitle,
+            url: mUrl, // keep storing the ID or the full URL as you already did
+          }),
+        });
+      } else {
+        // Find the file input used for photo or audio
+        const selector =
+          mKind === "photo"
+            ? 'input[type="file"][accept^="image"]'
+            : 'input[type="file"][accept^="audio"]';
+        const input = document.querySelector(selector) as HTMLInputElement & { _mzfile?: File };
+        const file = input?._mzfile || input?.files?.[0];
 
-              const fd = new FormData();
-              fd.append("kind", mKind);
-              fd.append("title", mTitle || "");
-              fd.append("file", file);
+        if (!file) return alert("Please choose a file to upload");
 
-              const up = await fetch("/api/media/upload", {
-                method: "POST",
-                body: fd,
-                credentials: "include",
-              });
+        // ⤵️ Upload DIRECTLY to Cloudinary (no Vercel limits)
+        const { uploadToCloudinaryBrowser } = await import("@/lib/uploadToCloudinary");
+        const uploaded = await uploadToCloudinaryBrowser(file);
 
-              if (!up.ok) {
-                const msg = await up.text();
-                throw new Error(msg);
-              }
+        // Save to your DB via the existing API
+        await api("/api/media", {
+          method: "POST",
+          body: JSON.stringify({
+            kind: mKind,                  // "photo" or "audio"
+            title: mTitle || undefined,
+            url: uploaded.secure_url,     // final URL from Cloudinary
+            thumbnail: mKind === "photo" ? uploaded.secure_url : undefined,
+            provider: "cloudinary",
+            public_id: uploaded.public_id,
+          }),
+        });
+      }
 
-              const payload = await up.json();
-              // save to media collection using your existing /api/media route
-              await api("/api/media", {
-                method: "POST",
-                body: JSON.stringify({
-                  kind: mKind,
-                  title: mTitle,
-                  url: payload.url,
-                  thumbnail: payload.thumbnail || undefined,
-                }),
-              });
-            }
+      // reset + refresh
+      setMTitle("");
+      setMUrl("");
+      setMThumb("");
+      loadMedia();
+      done("Added");
+    } catch (e: any) {
+      alert(e?.message || "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }}
+  className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
+>
+  {busy ? (mKind === "youtube" ? "Adding…" : "Uploading…") : "Add"}
+</button>
 
-            // reset
-            setMTitle("");
-            setMUrl("");
-            setMThumb("");
-            loadMedia();
-            done("Added");
-          } catch (e: any) {
-            alert(e?.message || "Failed");
-          } finally {
-            setBusy(false);
-          }
-        }}
-        className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
-      >
-        {busy ? (mKind === "youtube" ? "Adding…" : "Uploading…") : "Add"}
-      </button>
     </div>
 
     <div className="rounded-xl border bg-white p-5">

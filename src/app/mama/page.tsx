@@ -1,21 +1,15 @@
 // src/app/mama/page.tsx
 export const dynamic = "force-dynamic";
+export const revalidate = 0; // disable caching
 
 // --- helpers ---------------------------------------------------------------
-
-/** Try to get an absolute base URL that works on Vercel + locally. */
-function getBaseUrl() {
-  if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
-}
 
 /** Extract a YouTube video ID from many possible URL formats or plain IDs. */
 function getYouTubeId(input?: string | null): string | null {
   if (!input) return null;
   const s = input.trim();
 
-  // If it already looks like a bare ID (11 chars, typical charset)
+  // Bare ID (11 chars)
   if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
 
   try {
@@ -25,15 +19,14 @@ function getYouTubeId(input?: string | null): string | null {
       const id = u.pathname.split("/").filter(Boolean).at(-1);
       return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
     }
-    // youtube.com/watch?v=<id>
+    // youtube.com/watch?v=<id> or youtube.com/embed/<id>
     if (u.hostname.includes("youtube.com")) {
       const v = u.searchParams.get("v");
       if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
-      // youtube.com/embed/<id>
       const parts = u.pathname.split("/").filter(Boolean);
-      const idx = parts.findIndex((p) => p === "embed");
-      if (idx >= 0) {
-        const id = parts[idx + 1];
+      const i = parts.findIndex((p) => p === "embed");
+      if (i >= 0) {
+        const id = parts[i + 1];
         return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
       }
     }
@@ -43,21 +36,17 @@ function getYouTubeId(input?: string | null): string | null {
   return null;
 }
 
-/** Normalize any API response shape to an array of { _id, title, videoId }. */
+/** Normalize to [{ _id?, title?, videoId }] allowing legacy docs with only `url`. */
 function normalizeItems(raw: any): Array<{ _id?: string; title?: string; videoId: string }> {
-  const items = Array.isArray(raw) ? raw
-              : Array.isArray(raw?.items) ? raw.items
-              : Array.isArray(raw?.data) ? raw.data
-              : [];
-
+  const items = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
   return items
     .map((it: any) => {
-      // Accept fields: videoId OR url OR link OR embedUrl, plus optional title/_id
       const id =
-        getYouTubeId(it?.videoId) ||
+        it?.videoId ||
         getYouTubeId(it?.url) ||
         getYouTubeId(it?.link) ||
-        getYouTubeId(it?.embedUrl);
+        getYouTubeId(it?.embedUrl) ||
+        getYouTubeId(it?.video);
 
       return id ? { _id: it?._id, title: it?.title, videoId: id } : null;
     })
@@ -68,11 +57,10 @@ function normalizeItems(raw: any): Array<{ _id?: string; title?: string; videoId
 
 async function getData() {
   try {
-    const res = await fetch(`${getBaseUrl()}/api/mama`, {
+    // Relative fetch -> same host on Vercel (matches Media page behavior)
+    const res = await fetch("/api/mama", {
       cache: "no-store",
-      // avoid edge cache confusion
       next: { revalidate: 0 },
-      headers: { "x-internal": "1" },
     });
     if (!res.ok) return { items: [] as any[] };
     const json = await res.json();
