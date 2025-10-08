@@ -1,14 +1,8 @@
 // src/app/mama/page.tsx
 export const dynamic = "force-dynamic";
+export const revalidate = 0; // fully disable caching for this page
 
 // --- helpers ---------------------------------------------------------------
-
-/** Try to get an absolute base URL that works on Vercel + locally. */
-function getBaseUrl() {
-  if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
-}
 
 /** Extract a YouTube video ID from many possible URL formats or plain IDs. */
 function getYouTubeId(input?: string | null): string | null {
@@ -46,9 +40,9 @@ function getYouTubeId(input?: string | null): string | null {
 /** Normalize any API response shape to an array of { _id, title, videoId }. */
 function normalizeItems(raw: any): Array<{ _id?: string; title?: string; videoId: string }> {
   const items = Array.isArray(raw) ? raw
-              : Array.isArray(raw?.items) ? raw.items
-              : Array.isArray(raw?.data) ? raw.data
-              : [];
+            : Array.isArray(raw?.items) ? raw.items
+            : Array.isArray(raw?.data) ? raw.data
+            : [];
 
   return items
     .map((it: any) => {
@@ -68,11 +62,10 @@ function normalizeItems(raw: any): Array<{ _id?: string; title?: string; videoId
 
 async function getData() {
   try {
-    const res = await fetch(`${getBaseUrl()}/api/mama`, {
+    // Relative fetch ensures same host in prod, like your Media page
+    const res = await fetch("/api/mama", {
       cache: "no-store",
-      // avoid edge cache confusion
       next: { revalidate: 0 },
-      headers: { "x-internal": "1" },
     });
     if (!res.ok) return { items: [] as any[] };
     const json = await res.json();
