@@ -1,14 +1,40 @@
-// Server (Node runtime)
+// src/app/api/mama/route.ts
 export const runtime = "nodejs";
-import { NextRequest, NextResponse } from "next/server";
-import { dbConnect } from "@/lib/db";         // your mongoose connect helper
-import MamaModel from "@/lib/models/MamaModel";   // your Mama schema/model
+export const dynamic = "force-dynamic";
 
-// tiny helper to extract a youtube ID from url or raw ID
+import { NextRequest, NextResponse } from "next/server";
+import mongoose, { Schema } from "mongoose";
+
+/** --- DB connect (inline, no external deps) --- */
+const uri = process.env.MONGODB_URI || "";
+let conn: typeof mongoose | null = null;
+async function dbConnect() {
+  if (!uri) throw new Error("MONGODB_URI not set");
+  if (conn && mongoose.connection.readyState === 1) return conn;
+  if (mongoose.connection.readyState === 1) return mongoose;
+  conn = await mongoose.connect(uri);
+  return conn;
+}
+
+/** --- Minimal model --- */
+const MamaSchema = new Schema(
+  {
+    title: { type: String, default: "" },
+    url: { type: String, default: "" },      // original YouTube URL/ID you typed
+    videoId: { type: String, required: true } // normalized 11-char ID
+  },
+  { timestamps: true }
+);
+const Mama =
+  (mongoose.models.Mama as mongoose.Model<any>) ||
+  mongoose.model("Mama", MamaSchema);
+
+/** --- Helpers --- */
 function getYouTubeId(input?: string | null): string | null {
   if (!input) return null;
   const s = input.trim();
-  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s; // bare ID
+
   try {
     const u = new URL(s);
     if (u.hostname.includes("youtu.be")) {
@@ -29,40 +55,67 @@ function getYouTubeId(input?: string | null): string | null {
   return null;
 }
 
-// GET /api/mama  -> { items: [{ _id, title, videoId }] }
+/** Admin check:
+ *  - cookie "mz_admin=1" (your existing admin)
+ *  - OR header "x-admin-key: <ADMIN_PASSWORD>"
+ */
+function isAdmin(req: NextRequest) {
+  const cookieAdmin = req.cookies.get("mz_admin")?.value === "1";
+  const headerKey = req.headers.get("x-admin-key");
+  const envKey = process.env.ADMIN_PASSWORD || "";
+  const headerAdmin = !!headerKey && envKey && headerKey === envKey;
+  return cookieAdmin || headerAdmin;
+}
+
+/** --- GET: list all (public) --- */
 export async function GET() {
-  await dbConnect();
-  const docs = await MamaModel.find({}).sort({ _id: -1 }).lean();
-  const items = (docs || [])
-    .map((d: any) => {
-      const videoId =
-        getYouTubeId(d.videoId) || getYouTubeId(d.url) || getYouTubeId(d.youtube);
-      if (!videoId) return null;
-      return { _id: String(d._id), title: d.title || "", videoId };
-    })
-    .filter(Boolean);
-  return NextResponse.json({ items });
-}
-
-// POST /api/mama  -> body: { title?: string, youtube: string | id }
-export async function POST(req: NextRequest) {
-  await dbConnect();
-  const body = await req.json().catch(() => ({} as any));
-  const videoId =
-    getYouTubeId(body.youtube) || getYouTubeId(body.url) || getYouTubeId(body.videoId);
-  if (!videoId) {
-    return NextResponse.json({ error: "Invalid YouTube link/ID" }, { status: 400 });
+  try {
+    await dbConnect();
+    const items = await Mama.find().sort({ createdAt: -1 }).lean().exec();
+    return NextResponse.json({ items });
+  } catch (e: any) {
+    console.error("Mama GET error:", e?.message || e);
+    return NextResponse.json({ items: [] });
   }
-  const doc = await MamaModel.create({ title: body.title || "", videoId });
-  return NextResponse.json({ ok: true, item: { _id: String(doc._id), title: doc.title, videoId } });
 }
 
-// DELETE /api/mama?id=...
+/** --- POST: add one (admin only) --- */
+export async function POST(req: NextRequest) {
+  try {
+    if (!isAdmin(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { title = "", youtube = "" } = await req.json().catch(() => ({}));
+    const videoId = getYouTubeId(youtube);
+    if (!videoId) {
+      return NextResponse.json(
+        { error: "Provide a valid YouTube URL or video ID" },
+        { status: 400 }
+      );
+    }
+    await dbConnect();
+    const doc = await Mama.create({ title, url: youtube, videoId });
+    return NextResponse.json({ ok: true, item: { _id: doc._id, title: doc.title, url: doc.url, videoId: doc.videoId } });
+  } catch (e: any) {
+    console.error("Mama POST error:", e?.message || e);
+    return NextResponse.json({ error: "Save failed" }, { status: 500 });
+  }
+}
+
+/** --- DELETE: remove by ?id= (admin only) --- */
 export async function DELETE(req: NextRequest) {
-  await dbConnect();
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  await MamaModel.deleteOne({ _id: id });
-  return NextResponse.json({ ok: true });
+  try {
+    if (!isAdmin(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    await dbConnect();
+    await Mama.deleteOne({ _id: id });
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    console.error("Mama DELETE error:", e?.message || e);
+    return NextResponse.json({ error: "Delete failed" }, { status: 500 });
+  }
 }

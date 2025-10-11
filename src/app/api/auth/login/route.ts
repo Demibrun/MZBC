@@ -1,18 +1,23 @@
-// src/app/api/auth/login/route.ts
-export const dynamic = "force-dynamic";
+import { NextRequest, NextResponse } from "next/server";
 
-import { NextResponse } from "next/server";
-import { setAdminCookie } from "../../_utils";
+export async function POST(req: NextRequest) {
+  const { password } = await req.json().catch(() => ({}));
+  const ok = !!password && password === process.env.ADMIN_PASSWORD;
 
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
-  const provided = body?.password || "";
-  const expected = process.env.ADMIN_PASSWORD || "mzbcwebsite";
-
-  if (provided !== expected) {
+  if (!ok) {
     return NextResponse.json({ error: "Invalid password" }, { status: 401 });
   }
 
-  setAdminCookie();
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+
+  // set mz_admin cookie for 7 days
+  res.cookies.set("mz_admin", "1", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+
+  return res;
 }
