@@ -1,68 +1,75 @@
-// src/app/api/testimonies/route.ts
-export const dynamic = "force-dynamic";
-
 import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
-import { Testimony } from "@/lib/models";
-import { requireAdmin } from "../_utils";
+import { requireAdmin } from "@/lib/auth";
+import Testimony from "@/lib/models/testimony";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const runtime = "nodejs";
+
+/** GET /api/testimonies?all=1
+ * all=1 -> return all
+ * otherwise -> return approved only
+ */
 export async function GET(req: Request) {
-  await dbConnect();
-  const { searchParams } = new URL(req.url);
-  const all = searchParams.get("all");
-  const pending = searchParams.get("pending");
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const showAll = searchParams.get("all") === "1";
 
-  let query: any = {};
-  if (!all && !pending) query.approved = true;
-  if (pending) query.approved = false;
+    const q = showAll ? {} : { approved: true };
+    const items = await Testimony.find(q).sort({ createdAt: -1 }).lean().exec();
 
-  const items = await Testimony.find(query).sort({ createdAt: -1 }).lean().exec();
-  return NextResponse.json({ items });
+    return NextResponse.json({ items });
+  } catch (e: any) {
+    console.error("TESTIMONIES GET", e);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }
 
-// Admin can create approved testimonies directly
+/** POST /api/testimonies (admin) */
 export async function POST(req: Request) {
   const notAdmin = requireAdmin();
   if (notAdmin) return notAdmin;
 
-  await dbConnect();
-  const body = await req.json();
-  const { title, name, body: tBody, approved } = body || {};
-  if (!title || !tBody) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  try {
+    await dbConnect();
+    const body = await req.json().catch(() => ({}));
+    const { title, name = "", body: content, approved = true } = body || {};
 
-  const created = await Testimony.create({
-    title,
-    name: name || "",
-    body: tBody,
-    approved: approved === true,
-  });
-  return NextResponse.json(created.toObject());
+    if (!title || !content) {
+      return NextResponse.json({ error: "Title and body are required" }, { status: 400 });
+    }
+
+    const created = await Testimony.create({
+      title,
+      name,
+      body: content,
+      approved: !!approved,
+    });
+
+    return NextResponse.json(created.toObject());
+  } catch (e: any) {
+    console.error("TESTIMONIES POST", e);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }
 
-// Approve/Reject by id
-export async function PUT(req: Request) {
-  const notAdmin = requireAdmin();
-  if (notAdmin) return notAdmin;
-
-  await dbConnect();
-  const body = await req.json();
-  const { id, approve } = body || {};
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-
-  await Testimony.updateOne({ _id: id }, { $set: { approved: !!approve } }).exec();
-  return NextResponse.json({ ok: true });
-}
-
-// Delete by id
+/** DELETE /api/testimonies?id=... (admin) */
 export async function DELETE(req: Request) {
   const notAdmin = requireAdmin();
   if (notAdmin) return notAdmin;
 
-  await dbConnect();
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  await Testimony.deleteOne({ _id: id }).exec();
-  return NextResponse.json({ ok: true });
+    await Testimony.deleteOne({ _id: id }).exec();
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    console.error("TESTIMONIES DELETE", e);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }

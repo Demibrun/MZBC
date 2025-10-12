@@ -1,8 +1,7 @@
 "use client";
 
+import { Url } from "next/dist/shared/lib/router/router";
 import { useEffect, useState } from "react";
-
-/** Fetch helper that always sends cookies and returns clear errors */
 async function api<T = any>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     credentials: "include",
@@ -15,26 +14,17 @@ async function api<T = any>(url: string, init?: RequestInit): Promise<T> {
     ...init,
   });
 
-  let raw = "";
-  try {
-    raw = await res.text();
-  } catch {}
-
+  const text = await res.text().catch(() => "");
   if (!res.ok) {
-    let msg = raw;
     try {
-      const j = JSON.parse(raw);
-      msg = j?.error || j?.message || msg;
-    } catch {}
-    throw new Error(msg || `${res.status} ${res.statusText}`);
+      const j = JSON.parse(text);
+      throw new Error(j?.error || j?.message || `${res.status} ${res.statusText}`);
+    } catch {
+      throw new Error(text || `${res.status} ${res.statusText}`);
+    }
   }
-
-  if (!raw) return undefined as T;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return raw as unknown as T;
-  }
+  if (!text) return undefined as T;
+  try { return JSON.parse(text) as T; } catch { return text as unknown as T; }
 }
 
 // >>> ADDED: SundaySchoolQuickAdd — inline helper just for Sunday School media
@@ -215,7 +205,6 @@ const TABS = [
   "Units",
   "Ministry Groups",
   "Media",
-  "Mama’s Section",
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -224,7 +213,14 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [tab, setTab] = useState<Tab>("Zion Daily");
   const [busy, setBusy] = useState(false);
+  const [mFile, setMFile] = useState<File | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  type PP = { _id: string; title: string; body: string };
+const [pp, setPp] = useState<PP[]>([]);
+const [ppTitle, setPpTitle] = useState("");
+const [ppBody, setPpBody] = useState("");
+
+
   const done = (m: string) => {
     setToast(m);
     setTimeout(() => setToast(null), 1800);
@@ -445,85 +441,32 @@ function renderMediaPreview(e: Entry) {
     }
   }
 
-  /** ---------------- Mama’s Section (YouTube only) ---------------- */
-
-type MamaItem = { _id: string; title?: string; videoId: string };
-
-// Accepts a full YouTube URL or a bare 11-char ID and returns the ID (or null)
-function ytId(input?: string | null) {
-  if (!input) return null;
-  const s = input.trim();
-  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+  
+  /** ---------------- Prayer Points ---------------- */
+  async function loadPp() {
   try {
-    const u = new URL(s);
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.split("/").filter(Boolean).at(-1);
-      return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const v = u.searchParams.get("v");
-      if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
-      const parts = u.pathname.split("/").filter(Boolean);
-      const idx = parts.findIndex((p) => p === "embed");
-      if (idx >= 0) {
-        const id = parts[idx + 1];
-        return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
-      }
-    }
-  } catch {}
-  return null;
-}
-
-// Local state
-const [mamaTitle, setMamaTitle] = useState("");
-const [mamaUrl, setMamaUrl] = useState("");
-const [mamas, setMamas] = useState<MamaItem[]>([]);
-
-// Normalize any server response shape into [{ _id, title, videoId }]
-function normalizeMama(resp: any): MamaItem[] {
-  const src = Array.isArray(resp?.items)
-    ? resp.items
-    : Array.isArray(resp)
-    ? resp
-    : Array.isArray(resp?.data)
-    ? resp.data
-    : [];
-
-  return src
-    .map((it: any) => {
-      const id =
-        ytId(it?.videoId) || ytId(it?.url) || ytId(it?.link) || ytId(it?.youtube);
-      if (!id) return null;
-      return { _id: String(it?._id || id), title: it?.title || "", videoId: id };
-    })
-    .filter(Boolean) as MamaItem[];
-}
-
-async function loadMamas() {
-  try {
-    const d = await api<any>("/api/mama"); // server returns { items: [...] }
-    setMamas(normalizeMama(d));
+    const d = await api<{ items?: PP[] }>("/api/prayer");
+    setPp(d?.items || []);
   } catch {
-    setMamas([]);
+    setPp([]);
   }
 }
 
 useEffect(() => {
-  if (authed && tab === "Mama’s Section") loadMamas();
+  if (authed && tab === "Prayer Points") loadPp();
 }, [authed, tab]);
 
-async function addMama() {
-  if (!mamaUrl) return alert("Enter a YouTube URL or Video ID");
-  // We POST exactly what the API expects; it extracts/validates ID on the server.
+async function addPp() {
+  if (!ppTitle || !ppBody) return alert("Title and content required");
   setBusy(true);
   try {
-    await api("/api/mama", {
+    await api("/api/prayer", {
       method: "POST",
-      body: JSON.stringify({ title: mamaTitle, youtube: mamaUrl }),
+      body: JSON.stringify({ title: ppTitle, body: ppBody }),
     });
-    setMamaTitle("");
-    setMamaUrl("");
-    await loadMamas();
+    setPpTitle("");
+    setPpBody("");
+    await loadPp();
     done("Added");
   } catch (e: any) {
     alert(e?.message || "Failed");
@@ -531,13 +474,12 @@ async function addMama() {
     setBusy(false);
   }
 }
-
-async function delMama(id: string) {
+async function delPp(id: string) {
   if (!confirm("Delete?")) return;
   setBusy(true);
   try {
-    await api(`/api/mama?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    await loadMamas();
+    await api(`/api/prayer?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    await loadPp();
     done("Deleted");
   } catch (e: any) {
     alert(e?.message || "Failed");
@@ -545,54 +487,6 @@ async function delMama(id: string) {
     setBusy(false);
   }
 }
-
-  /** ---------------- Prayer Points ---------------- */
-  type PP = { _id: string; title: string; body: string };
-  const [pp, setPp] = useState<PP[]>([]);
-  const [ppTitle, setPpTitle] = useState("");
-  const [ppBody, setPpBody] = useState("");
-  async function loadPp() {
-    try {
-      const d = await api<{ items?: PP[] }>("/api/prayer");
-      setPp(d?.items || []);
-    } catch {
-      setPp([]);
-    }
-  }
-  useEffect(() => {
-    if (authed && tab === "Prayer Points") loadPp();
-  }, [authed, tab]);
-  async function addPp() {
-    if (!ppTitle || !ppBody) return alert("Title and content required");
-    setBusy(true);
-    try {
-      await api("/api/prayer", {
-        method: "POST",
-        body: JSON.stringify({ title: ppTitle, body: ppBody }),
-      });
-      setPpTitle("");
-      setPpBody("");
-      loadPp();
-      done("Added");
-    } catch (e: any) {
-      alert(e?.message || "Failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function delPp(id: string) {
-    if (!confirm("Delete?")) return;
-    setBusy(true);
-    try {
-      await api(`/api/prayer?id=${id}`, { method: "DELETE" });
-      loadPp();
-      done("Deleted");
-    } catch (e: any) {
-      alert(e?.message || "Failed");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   /** ---------------- Humor ---------------- */
   type Humor = { humor?: string; scienceFact?: string; healthFact?: string };
@@ -1186,201 +1080,8 @@ async function delMama(id: string) {
         </section>
       )}
 
-{/* Mama’s Section */}
-{tab === "Mama’s Section" && (
-  <section className="grid gap-4">
-    <div className="rounded-xl border bg-white p-5">
-      <h2 className="text-xl font-bold mb-3">Add YouTube Video</h2>
-      <div className="grid md:grid-cols-2 gap-3">
-        <label className="block">
-          <span className="text-sm font-medium">Title (optional)</span>
-          <input
-            value={mamaTitle}
-            onChange={(e) => setMamaTitle(e.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium">YouTube URL or Video ID</span>
-          <input
-            value={mamaUrl}
-            onChange={(e) => setMamaUrl(e.target.value)}
-            placeholder="https://youtube.com/watch?v=XXXXXXXXXXX or XXXXXXX..."
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
-        </label>
-      </div>
-      <button
-        disabled={busy}
-        onClick={addMama}
-        className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
-      >
-        {busy ? "Adding…" : "Add"}
-      </button>
-    </div>
 
-    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-  {mamas.length === 0 && <p>No videos yet.</p>}
-  {mamas.map((v) => (
-    <div key={v._id} className="border rounded p-3">
-      {v.title && <div className="font-semibold mb-2">{v.title}</div>}
-      <div className="aspect-video w-full overflow-hidden rounded">
-        <iframe
-          className="h-full w-full"
-          src={`https://www.youtube.com/embed/${v.videoId}`}
-          title={v.title || "Mama video"}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          loading="lazy"
-        />
-      </div>
-      <div className="mt-2 text-xs text-gray-600 break-all">ID: {v.videoId}</div>
-      <button onClick={() => delMama(v._id)} className="mt-2 text-red-600 underline">
-        Delete
-      </button>
-    </div>
-  ))}
-</div>
 
-  </section>
-)}
-
-      {/* Prayer Points */}
-      {tab === "Prayer Points" && (
-        <section className="grid gap-4">
-          <div className="rounded-xl border bg-white p-5">
-            <h2 className="text-xl font-bold mb-3">Add Prayer Point</h2>
-            <label className="block">
-              <span className="text-sm font-medium">Title</span>
-              <input
-                value={ppTitle}
-                onChange={(e) => setPpTitle(e.target.value)}
-                className="mt-1 w-full rounded border px-3 py-2"
-              />
-            </label>
-            <label className="block mt-3">
-              <span className="text-sm font-medium">Content</span>
-              <textarea
-                value={ppBody}
-                onChange={(e) => setPpBody(e.target.value)}
-                className="mt-1 w-full rounded border px-3 py-2 min-h-[120px]"
-              />
-            </label>
-            <button
-              disabled={busy}
-              onClick={addPp}
-              className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
-            >
-              {busy ? "Adding…" : "Add"}
-            </button>
-          </div>
-
-          <div className="rounded-xl border bg-white p-5">
-            <h2 className="text-xl font-bold mb-3">List</h2>
-            <div className="grid gap-3">
-              {pp.length === 0 && <p>No items.</p>}
-              {pp.map((p) => (
-                <div key={p._id} className="border rounded p-3">
-                  <div className="font-semibold">{p.title}</div>
-                  <div className="text-sm whitespace-pre-wrap mt-1">
-                    {p.body}
-                  </div>
-                  <button
-                    onClick={() => delPp(p._id)}
-                    className="mt-2 text-red-600 underline"
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Humor */}
-      {tab === "Humor" && (
-        <section className="rounded-xl border bg-white p-5 grid gap-3">
-          <h2 className="text-xl font-bold">Humor & Facts</h2>
-          <label className="block">
-            <span className="text-sm font-medium">Humor of the Week</span>
-            <textarea
-              value={humor.humor || ""}
-              onChange={(e) => setHumor({ ...humor, humor: e.target.value })}
-              className="mt-1 w-full rounded border px-3 py-2 min-h-[100px]"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">Science Fact</span>
-            <textarea
-              value={humor.scienceFact || ""}
-              onChange={(e) =>
-                setHumor({ ...humor, scienceFact: e.target.value })
-              }
-              className="mt-1 w-full rounded border px-3 py-2 min-h-[80px]"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">Health Fact</span>
-            <textarea
-              value={humor.healthFact || ""}
-              onChange={(e) =>
-                setHumor({ ...humor, healthFact: e.target.value })
-              }
-              className="mt-1 w-full rounded border px-3 py-2 min-h-[80px]"
-            />
-          </label>
-          <button
-            disabled={busy}
-            onClick={saveHumor}
-            className="rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
-          >
-            {busy ? "Saving…" : "Save"}
-          </button>
-        </section>
-      )}
-
-      {/* Deliverance */}
-      {tab === "Deliverance" && (
-        <section className="rounded-xl border bg-white p-5 grid gap-3">
-          <h2 className="text-xl font-bold">Deliverance (Zoom)</h2>
-          <label className="block">
-            <span className="text-sm font-medium">Zoom ID</span>
-            <input
-              value={deliv.zoomId || ""}
-              onChange={(e) => setDeliv({ ...deliv, zoomId: e.target.value })}
-              className="mt-1 w-full rounded border px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">Passcode</span>
-            <input
-              value={deliv.zoomPasscode || ""}
-              onChange={(e) =>
-                setDeliv({ ...deliv, zoomPasscode: e.target.value })
-              }
-              className="mt-1 w-full rounded border px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">Instructions</span>
-            <textarea
-              value={deliv.instructions || ""}
-              onChange={(e) =>
-                setDeliv({ ...deliv, instructions: e.target.value })
-              }
-              className="mt-1 w-full rounded border px-3 py-2 min-h-[100px]"
-            />
-          </label>
-          <button
-            disabled={busy}
-            onClick={saveDeliv}
-            className="rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
-          >
-            {busy ? "Saving…" : "Save"}
-          </button>
-        </section>
-      )}
 
       {/* Pastors */}
       {tab === "Pastors" && (
@@ -1599,12 +1300,14 @@ async function delMama(id: string) {
     <div className="rounded-xl border bg-white p-5">
       <h2 className="text-xl font-bold mb-3">Add Media</h2>
 
-      {/* Kind chooser keeps YouTube/Photo/Audio */}
       <label className="block">
         <span className="text-sm font-medium">Kind</span>
         <select
           value={mKind}
-          onChange={(e) => setMKind(e.target.value as any)}
+          onChange={(e) => {
+            setMKind(e.target.value as any);
+            setMFile(null);
+          }}
           className="mt-1 w-full rounded border px-3 py-2"
         >
           <option value="youtube">YouTube (enter video ID)</option>
@@ -1613,7 +1316,6 @@ async function delMama(id: string) {
         </select>
       </label>
 
-      {/* Title always available */}
       <div className="grid md:grid-cols-3 gap-3 mt-3">
         <label className="block">
           <span className="text-sm font-medium">Title</span>
@@ -1624,121 +1326,106 @@ async function delMama(id: string) {
           />
         </label>
 
-        {/* For YouTube: Video ID field (old behavior) */}
         {mKind === "youtube" && (
-          <>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium">YouTube Video ID</span>
-              <input
-                value={mUrl}
-                onChange={(e) => setMUrl(e.target.value)}
-                className="mt-1 w-full rounded border px-3 py-2"
-                placeholder="e.g., dQw4w9WgXcQ"
-              />
-            </label>
-          </>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium">YouTube Video ID</span>
+            <input
+              value={mUrl}
+              onChange={(e) => setMUrl(e.target.value)}
+              className="mt-1 w-full rounded border px-3 py-2"
+              placeholder="e.g., dQw4w9WgXcQ"
+            />
+          </label>
         )}
 
-        {/* For Photo: file input */}
         {mKind === "photo" && (
-          <>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium">Select Image</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] || null;
-                  (e.target as any)._mzfile = f;
-                }}
-                className="mt-1 w-full rounded border px-3 py-2"
-              />
-            </label>
-          </>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium">Select Image</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setMFile(e.target.files?.[0] || null)}
+              className="mt-1 w-full rounded border px-3 py-2"
+            />
+          </label>
         )}
 
-        {/* For Audio: file input */}
         {mKind === "audio" && (
-          <>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium">Select Audio</span>
-              <input
-                type="file"
-                accept="audio/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] || null;
-                  (e.target as any)._mzfile = f;
-                }}
-                className="mt-1 w-full rounded border px-3 py-2"
-              />
-            </label>
-          </>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium">Select Audio</span>
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(e) => setMFile(e.target.files?.[0] || null)}
+              className="mt-1 w-full rounded border px-3 py-2"
+            />
+          </label>
         )}
       </div>
 
-      
+      <button
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            if (mKind === "youtube") {
+              if (!mUrl.trim()) {
+                alert("Video ID required");
+              } else {
+                await api("/api/media", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    kind: "youtube",
+                    title: mTitle || undefined,
+                    url: mUrl.trim(),
+                  }),
+                });
+              }
+            } else {
+              if (!mFile) {
+                alert("Please choose a file to upload");
+              } else {
+                const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+                const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UNSIGNED_PRESET;
+                if (!cloud || !preset) {
+                  alert("Cloudinary not configured. Set NEXT_PUBLIC_CLOUDINARY_* env vars.");
+                } else {
+                  const { uploadToCloudinaryBrowser } = await import("@/lib/uploadToCloudinary");
+                  const uploaded = await uploadToCloudinaryBrowser(mFile, {
+                    resourceType: "auto",
+                  });
 
-<button
-  disabled={busy}
-  onClick={async () => {
-    setBusy(true);
-    try {
-      if (mKind === "youtube") {
-        if (!mUrl) return alert("Video ID required");
-        await api("/api/media", {
-          method: "POST",
-          body: JSON.stringify({
-            kind: "youtube",
-            title: mTitle,
-            url: mUrl, // keep storing the ID or the full URL as you already did
-          }),
-        });
-      } else {
-        // Find the file input used for photo or audio
-        const selector =
-          mKind === "photo"
-            ? 'input[type="file"][accept^="image"]'
-            : 'input[type="file"][accept^="audio"]';
-        const input = document.querySelector(selector) as HTMLInputElement & { _mzfile?: File };
-        const file = input?._mzfile || input?.files?.[0];
+                  await api("/api/media", {
+                    method: "POST",
+                    body: JSON.stringify({
+                      kind: mKind, // "photo" | "audio"
+                      title: mTitle || undefined,
+                      url: uploaded.secure_url,
+                      thumbnail: mKind === "photo" ? uploaded.secure_url : undefined,
+                      provider: "cloudinary",
+                      public_id: uploaded.public_id,
+                    }),
+                  });
+                }
+              }
+            }
 
-        if (!file) return alert("Please choose a file to upload");
-
-        // ⤵️ Upload DIRECTLY to Cloudinary (no Vercel limits)
-        const { uploadToCloudinaryBrowser } = await import("@/lib/uploadToCloudinary");
-        const uploaded = await uploadToCloudinaryBrowser(file);
-
-        // Save to your DB via the existing API
-        await api("/api/media", {
-          method: "POST",
-          body: JSON.stringify({
-            kind: mKind,                  // "photo" or "audio"
-            title: mTitle || undefined,
-            url: uploaded.secure_url,     // final URL from Cloudinary
-            thumbnail: mKind === "photo" ? uploaded.secure_url : undefined,
-            provider: "cloudinary",
-            public_id: uploaded.public_id,
-          }),
-        });
-      }
-
-      // reset + refresh
-      setMTitle("");
-      setMUrl("");
-      setMThumb("");
-      loadMedia();
-      done("Added");
-    } catch (e: any) {
-      alert(e?.message || "Failed");
-    } finally {
-      setBusy(false);
-    }
-  }}
-  className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
->
-  {busy ? (mKind === "youtube" ? "Adding…" : "Uploading…") : "Add"}
-</button>
-
+            setMTitle("");
+            setMUrl("");
+            setMThumb("");
+            setMFile(null);
+            loadMedia();
+            done("Added");
+          } catch (e: any) {
+            alert(e?.message || "Failed");
+          } finally {
+            setBusy(false);
+          }
+        }}
+        className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
+      >
+        {busy ? (mKind === "youtube" ? "Adding…" : "Uploading…") : "Add"}
+      </button>
     </div>
 
     <div className="rounded-xl border bg-white p-5">
@@ -1747,7 +1434,7 @@ async function delMama(id: string) {
         {media.map((m) => (
           <div key={m._id} className="border rounded p-3">
             <div className="text-xs uppercase text-gray-500">{m.kind}</div>
-            <div className="font-semibold">{m.title}</div>
+            <div className="font-semibold break-words">{m.title}</div>
             <div className="break-all text-xs text-gray-600">{m.url}</div>
             <button
               onClick={() => delMedia(m._id)}
@@ -1761,6 +1448,128 @@ async function delMama(id: string) {
     </div>
   </section>
 )}
+{tab === "Prayer Points" && (
+  <section className="grid gap-4">
+    <div className="rounded-xl border bg-white p-5">
+      <h2 className="text-xl font-bold mb-3">Add Prayer Point</h2>
+      <label className="block">
+        <span className="text-sm font-medium">Title</span>
+        <input
+          value={ppTitle}
+          onChange={(e) => setPpTitle(e.target.value)}
+          className="mt-1 w-full rounded border px-3 py-2"
+        />
+      </label>
+      <label className="block mt-3">
+        <span className="text-sm font-medium">Content</span>
+        <textarea
+          value={ppBody}
+          onChange={(e) => setPpBody(e.target.value)}
+          className="mt-1 w-full rounded border px-3 py-2 min-h-[120px]"
+        />
+      </label>
+      <button
+        disabled={busy}
+        onClick={addPp}
+        className="mt-3 rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
+      >
+        {busy ? "Adding…" : "Add"}
+      </button>
+    </div>
+
+    <div className="rounded-xl border bg-white p-5">
+      <h2 className="text-xl font-bold mb-3">List</h2>
+      <div className="grid gap-3">
+        {pp.length === 0 && <p>No items.</p>}
+        {pp.map((p) => (
+          <div key={p._id} className="border rounded p-3">
+            <div className="font-semibold">{p.title}</div>
+            <div className="text-sm whitespace-pre-wrap mt-1">{p.body}</div>
+            <button
+              onClick={() => delPp(p._id)}
+              className="mt-2 text-red-600 underline"
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+{tab === "Humor" && (
+  <section className="rounded-xl border bg-white p-5 grid gap-3">
+    <h2 className="text-xl font-bold">Humor & Facts</h2>
+    <label className="block">
+      <span className="text-sm font-medium">Humor of the Week</span>
+      <textarea
+        value={humor.humor || ""}
+        onChange={(e) => setHumor({ ...humor, humor: e.target.value })}
+        className="mt-1 w-full rounded border px-3 py-2 min-h-[100px]"
+      />
+    </label>
+    <label className="block">
+      <span className="text-sm font-medium">Science Fact</span>
+      <textarea
+        value={humor.scienceFact || ""}
+        onChange={(e) => setHumor({ ...humor, scienceFact: e.target.value })}
+        className="mt-1 w-full rounded border px-3 py-2 min-h-[80px]"
+      />
+    </label>
+    <label className="block">
+      <span className="text-sm font-medium">Health Fact</span>
+      <textarea
+        value={humor.healthFact || ""}
+        onChange={(e) => setHumor({ ...humor, healthFact: e.target.value })}
+        className="mt-1 w-full rounded border px-3 py-2 min-h-[80px]"
+      />
+    </label>
+    <button
+      disabled={busy}
+      onClick={saveHumor}
+      className="rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
+    >
+      {busy ? "Saving…" : "Save"}
+    </button>
+  </section>
+)}
+{tab === "Deliverance" && (
+  <section className="rounded-xl border bg-white p-5 grid gap-3">
+    <h2 className="text-xl font-bold">Deliverance (Zoom)</h2>
+    <label className="block">
+      <span className="text-sm font-medium">Zoom ID</span>
+      <input
+        value={deliv.zoomId || ""}
+        onChange={(e) => setDeliv({ ...deliv, zoomId: e.target.value })}
+        className="mt-1 w-full rounded border px-3 py-2"
+      />
+    </label>
+    <label className="block">
+      <span className="text-sm font-medium">Passcode</span>
+      <input
+        value={deliv.zoomPasscode || ""}
+        onChange={(e) => setDeliv({ ...deliv, zoomPasscode: e.target.value })}
+        className="mt-1 w-full rounded border px-3 py-2"
+      />
+    </label>
+    <label className="block">
+      <span className="text-sm font-medium">Instructions</span>
+      <textarea
+        value={deliv.instructions || ""}
+        onChange={(e) => setDeliv({ ...deliv, instructions: e.target.value })}
+        className="mt-1 w-full rounded border px-3 py-2 min-h-[100px]"
+      />
+    </label>
+    <button
+      disabled={busy}
+      onClick={saveDeliv}
+      className="rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
+    >
+      {busy ? "Saving…" : "Save"}
+    </button>
+  </section>
+)}
+
     </main>
   );
 }

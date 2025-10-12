@@ -1,26 +1,15 @@
-// lib/db.ts
+// src/lib/db.ts
 import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI!;
-if (!MONGODB_URI) {
-  throw new Error("MONGODB_URI not set");
-}
-
-let cached = (global as any)._mongoose;
-if (!cached) {
-  cached = (global as any)._mongoose = { conn: null as any, promise: null as any };
-}
+let conn: typeof mongoose | null = null;
 
 export async function dbConnect() {
-  if (cached.conn) return cached.conn;
-  if (!cached.promise) {
-    cached.promise = mongoose
-      .connect(MONGODB_URI, {
-        serverSelectionTimeoutMS: 15000,
-        maxPoolSize: 5,
-      })
-      .then((m) => m);
-  }
-  cached.conn = await cached.promise;
-  return cached.conn;
+  if (conn) return conn;
+  if (!MONGODB_URI) throw new Error("Missing MONGODB_URI");
+  conn = await mongoose.connect(MONGODB_URI);
+  return conn;
 }
+
+// Optional: keep default too so both import styles work
+export default dbConnect;

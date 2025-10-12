@@ -1,8 +1,9 @@
+// src/components/Footer.tsx (or wherever your Footer is)
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FaInstagram, FaFacebook, FaYoutube } from "react-icons/fa";
+import { FaInstagram, FaFacebook, FaYoutube, FaWhatsapp } from "react-icons/fa"; // 👈 add FaWhatsapp
 import { SiZoom } from "react-icons/si";
 import { createPortal } from "react-dom";
 
@@ -17,7 +18,6 @@ const links = [
   { label: "Deliverance", href: "/deliverance" },
   { label: "About", href: "/about" },
   { label: "Media", href: "/media" },
-  { label: "Mama's Page", href: "/mama" },
 ];
 
 export default function Footer() {
@@ -50,7 +50,17 @@ export default function Footer() {
           </p>
 
           {/* Social Media Logos */}
+          
           <div className="mt-4 flex gap-4">
+            <a
+              href="https://wa.me/2348148599942"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="WhatsApp"
+              title="+234 814 859 9942"
+            >
+              <FaWhatsapp size={24} color="#25D366" />
+            </a>
             <a
               href="https://www.instagram.com/mountzionbiblechurch/"
               target="_blank"
@@ -113,13 +123,12 @@ export default function Footer() {
         rights reserved.
       </div>
 
-      {/* Modal (rendered in a portal so it always appears above everything) */}
       <GiveModal open={giveOpen} onClose={() => setGiveOpen(false)} />
     </footer>
   );
 }
 
-/* ---------- Modal via Portal (prevents stacking/overflow issues) ---------- */
+/* ---------- Modal via Portal ---------- */
 
 function GiveModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [mounted, setMounted] = useState(false);

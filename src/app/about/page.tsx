@@ -1,5 +1,5 @@
 // src/app/about/page.tsx
-import { dbConnect } from "@/lib/db";
+import dbConnect from "@/lib/db";
 import { MinistryGroup } from "@/lib/models";
 import type mongoose from "mongoose";
 

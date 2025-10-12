@@ -1,14 +1,13 @@
-import { Schema, model, models, InferSchemaType } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
-const DeliveranceSchema = new Schema({
-  zoomId: String,
-  zoomPasscode: String,
-  instructions: String,
-}, { timestamps: true });
+const DeliveranceSchema = new Schema(
+  {
+    zoomId: { type: String, default: "" },
+    zoomPasscode: { type: String, default: "" },
+    instructions: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
 
-export type DeliveranceDoc = InferSchemaType<typeof DeliveranceSchema>;
-
-const DeliveranceModel =
-  models.Deliverance || model<DeliveranceDoc>("Deliverance", DeliveranceSchema);
-
-export default DeliveranceModel;
+// single document collection
+export default models.Deliverance || model("Deliverance", DeliveranceSchema);

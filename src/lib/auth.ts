@@ -1,32 +1,32 @@
 // src/lib/auth.ts
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
-export const ADMIN_COOKIE = "mzbc_admin";
+const COOKIE_NAME = "mz_admin";
 
-
-export function isAdmin(): boolean {
-  const pass = process.env.ADMIN_PASSWORD || "mzbcwebsite";
-  const c = cookies().get("mzbc_admin")?.value;
-  return c === pass;
+export function isAdmin() {
+  // Works in all Node.js app routes (no need to pass req)
+  return cookies().get(COOKIE_NAME)?.value === "1";
 }
 
-
-export function assertAdmin() {
-  if (!isAdmin()) {
-    const err = new Error("Unauthorized");
-    (err as any).status = 401;
-    throw err;
-  }
+export function requireAdmin() {
+  if (isAdmin()) return null;
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
-export const ADMIN_COOKIE_OPTIONS = {
-  httpOnly: true as const,
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-  path: "/",
-};
+export function setAdminCookie(res: NextResponse) {
+  // Lax is fine for same-origin admin pages
+  res.cookies.set(COOKIE_NAME, "1", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    // secure: true, // uncomment in production on HTTPS
+    // maxAge: 60*60*8, // optional 8h session
+  });
+  return res;
+}
 
-export function verifyAdminPassword(pass: string) {
-  const target = process.env.ADMIN_PASSWORD || "mzbcwebsite";
-  return pass === target;
+export function clearAdminCookie(res: NextResponse) {
+  res.cookies.set(COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
+  return res;
 }
