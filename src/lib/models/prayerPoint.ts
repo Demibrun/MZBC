@@ -1,17 +1,17 @@
-import mongoose, { Schema, Document } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
-export interface IPrayerPoint extends Document {
+const PrayerPointSchema = new Schema(
+  {
+    title: { type: String, required: true },
+    body: { type: String, required: true },
+  },
+  { timestamps: true }
+);
+
+export type PrayerPointDoc = {
+  _id: string;
   title: string;
-  content: string;
-  createdAt: Date;
-}
+  body: string;
+};
 
-const PrayerPointSchema = new Schema<IPrayerPoint>({
-  title: { type: String, required: true },
-  content: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now },
-});
-
-// Prevent model overwrite in dev mode
-export const PrayerPoint =
-  mongoose.models.PrayerPoint || mongoose.model<IPrayerPoint>("PrayerPoint", PrayerPointSchema);
+export default models.PrayerPoint || model("PrayerPoint", PrayerPointSchema);

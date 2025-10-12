@@ -1,18 +1,20 @@
-// src/app/api/_utils.ts
+/** Return NextResponse 401 if not admin, otherwise null */
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const COOKIE_NAME = "mz_admin";
 const PASSWORD = process.env.ADMIN_PASSWORD || "mzbcwebsite";
 
-/** Return NextResponse 401 if not admin, otherwise null */
-export function requireAdmin() {
-  const cookie = cookies().get(COOKIE_NAME)?.value;
-  if (!cookie || cookie !== PASSWORD) {
+/** Returns NextResponse(401) when not admin, else null. */
+export async function requireAdmin(_req?: NextRequest) {
+  // cookie set by your /api/auth/login
+  const c = cookies().get("mz_admin");
+  if (!c || c.value !== "1") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;
 }
+
 
 /** Returns true/false for admin without creating a response */
 export function isAdmin() {
