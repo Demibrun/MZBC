@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model, models } from "mongoose";
 
 const PastorSchema = new Schema(
   {
@@ -9,4 +9,7 @@ const PastorSchema = new Schema(
   { timestamps: true }
 );
 
-export default models.Pastor || model("Pastor", PastorSchema);
+const Pastor: mongoose.Model<any> =
+  (models.Pastor as mongoose.Model<any>) || model<any>("Pastor", PastorSchema);
+
+export default Pastor;

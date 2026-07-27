@@ -1385,28 +1385,32 @@ async function delPp(id: string) {
               if (!mFile) {
                 alert("Please choose a file to upload");
               } else {
-                const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-                const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UNSIGNED_PRESET;
-                if (!cloud || !preset) {
-                  alert("Cloudinary not configured. Set NEXT_PUBLIC_CLOUDINARY_* env vars.");
-                } else {
-                  const { uploadToCloudinaryBrowser } = await import("@/lib/uploadToCloudinary");
-                  const uploaded = await uploadToCloudinaryBrowser(mFile, {
-                    resourceType: "auto",
-                  });
+                const fd = new FormData();
+                fd.append("kind", mKind);
+                fd.append("title", mTitle || "");
+                fd.append("file", mFile);
 
-                  await api("/api/media", {
-                    method: "POST",
-                    body: JSON.stringify({
-                      kind: mKind, // "photo" | "audio"
-                      title: mTitle || undefined,
-                      url: uploaded.secure_url,
-                      thumbnail: mKind === "photo" ? uploaded.secure_url : undefined,
-                      provider: "cloudinary",
-                      public_id: uploaded.public_id,
-                    }),
-                  });
+                const uploadRes = await fetch("/api/upload", {
+                  method: "POST",
+                  body: fd,
+                  credentials: "include",
+                });
+                const uploaded = await uploadRes.json().catch(() => ({}));
+                if (!uploadRes.ok) {
+                  throw new Error(uploaded?.error || "Upload failed");
                 }
+
+                await api("/api/media", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    kind: mKind,
+                    title: mTitle || undefined,
+                    url: uploaded.url,
+                    thumbnail: mKind === "photo" ? uploaded.thumbnail || uploaded.url : undefined,
+                    provider: uploaded.provider,
+                    public_id: uploaded.public_id,
+                  }),
+                });
               }
             }
 

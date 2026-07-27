@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireAdmin } from "../../_utils";
 import { v2 as cloudinary } from "cloudinary";
+import { checkUploadQuota, recordUploadUsage } from "@/lib/uploadQuota";
 
 // Configure Cloudinary
 if (!process.env.CLOUDINARY_URL) {
@@ -23,8 +24,17 @@ function bufferFromFile(f: File) {
   return f.arrayBuffer().then((ab) => Buffer.from(ab));
 }
 
+function hasCloudinaryConfig() {
+  return !!(
+    process.env.CLOUDINARY_URL ||
+    (process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET)
+  );
+}
+
 export async function POST(req: Request) {
-  const notAdmin = requireAdmin();
+  const notAdmin = await requireAdmin();
   if (notAdmin) return notAdmin;
 
   try {
@@ -37,8 +47,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file" }, { status: 400 });
     }
 
+    const quotaError = await checkUploadQuota(file.size);
+    if (quotaError) return quotaError;
+
+    if (!hasCloudinaryConfig()) {
+      return NextResponse.json(
+        { error: "Cloudinary is not configured on the server" },
+        { status: 500 }
+      );
+    }
+
     const buf = await bufferFromFile(file);
-    const resource_type = kind === "audio" ? "video" : "image";
+    const resource_type = kind === "audio" || kind === "video" ? "video" : "image";
 
     const uploaded: any = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
@@ -55,6 +75,7 @@ export async function POST(req: Request) {
 
     const url: string = uploaded.secure_url;
     const thumbnail = resource_type === "image" ? uploaded.secure_url : undefined;
+    await recordUploadUsage(file.size);
 
     return NextResponse.json({
       ok: true,

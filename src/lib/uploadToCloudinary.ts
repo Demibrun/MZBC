@@ -13,7 +13,7 @@ export async function uploadToCloudinaryBrowser(file: File, opts?: {
     throw new Error("Cloudinary not configured. Set NEXT_PUBLIC_CLOUDINARY_* env vars.");
   }
 
-  const endpoint = `https://api.cloudinary.com/v1_1/dav6gfotz/auto/upload`;
+  const endpoint = `https://api.cloudinary.com/v1_1/${cloud}/auto/upload`;
 
   const fd = new FormData();
   fd.append("file", file);

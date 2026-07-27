@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model, models } from "mongoose";
 
 const MinistryGroupSchema = new Schema(
   {
@@ -10,4 +10,8 @@ const MinistryGroupSchema = new Schema(
   { timestamps: true }
 );
 
-export default models.MinistryGroup || model("MinistryGroup", MinistryGroupSchema);
+const MinistryGroup: mongoose.Model<any> =
+  (models.MinistryGroup as mongoose.Model<any>) ||
+  model<any>("MinistryGroup", MinistryGroupSchema);
+
+export default MinistryGroup;

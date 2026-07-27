@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model, models } from "mongoose";
 
 const PrayerPointSchema = new Schema(
   {
@@ -14,4 +14,8 @@ export type PrayerPointDoc = {
   body: string;
 };
 
-export default models.PrayerPoint || model("PrayerPoint", PrayerPointSchema);
+const PrayerPoint: mongoose.Model<any> =
+  (models.PrayerPoint as mongoose.Model<any>) ||
+  model<any>("PrayerPoint", PrayerPointSchema);
+
+export default PrayerPoint;

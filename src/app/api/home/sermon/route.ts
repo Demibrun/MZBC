@@ -6,9 +6,9 @@ import mongoose, { Schema, models } from "mongoose";
 import { dbConnect } from "@/lib/db";
 import { requireAdmin } from "../../_utils";
 
-const Sermon =
-  models.Sermon ||
-  mongoose.model(
+const Sermon: mongoose.Model<any> =
+  (models.Sermon as mongoose.Model<any>) ||
+  mongoose.model<any>(
     "Sermon",
     new Schema(
       {

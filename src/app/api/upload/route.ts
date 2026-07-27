@@ -8,6 +8,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { mkdir, writeFile } from "fs/promises";
 import { randomUUID } from "crypto";
 import path from "path";
+import { checkUploadQuota, recordUploadUsage } from "@/lib/uploadQuota";
 
 /** Cloudinary config (if env is present) */
 const hasCloudinaryUrl = !!process.env.CLOUDINARY_URL;
@@ -99,6 +100,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
+    const quotaError = await checkUploadQuota(file.size);
+    if (quotaError) return quotaError;
+
     // Prefer Cloudinary if configured; otherwise save to /public/uploads
     if (
       hasCloudinaryUrl ||
@@ -107,9 +111,16 @@ export async function POST(req: NextRequest) {
         process.env.CLOUDINARY_API_SECRET)
     ) {
       const result = await uploadToCloudinary(file, kind, title);
+      await recordUploadUsage(file.size);
       return NextResponse.json(result);
+    } else if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: "Cloudinary is not configured on the server" },
+        { status: 500 }
+      );
     } else {
       const result = await saveToPublic(file);
+      await recordUploadUsage(file.size);
       return NextResponse.json({
         ok: true,
         kind,

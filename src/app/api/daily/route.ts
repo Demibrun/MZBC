@@ -35,8 +35,8 @@ const DailySchema = new Schema(
   { timestamps: true }
 );
 
-const Daily =
-  models.Daily || mongoose.model("Daily", DailySchema);
+const Daily: mongoose.Model<any> =
+  (models.Daily as mongoose.Model<any>) || mongoose.model<any>("Daily", DailySchema);
 
 /** GET
  *  - /api/daily?section=wordOfDay -> { section: { items: [...] } }

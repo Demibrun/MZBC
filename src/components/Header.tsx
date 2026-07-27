@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 /**
@@ -29,9 +30,12 @@ export default function Header() {
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2">
-            <img
+            <Image
               src="/logo.jpg"
               alt="MZBC"
+              width={36}
+              height={36}
+              priority
               className="h-9 w-9 rounded-full ring-2 ring-[var(--mz-primary-blue)]/30"
             />
             <span className="font-semibold text-[var(--mz-deep-blue)]">

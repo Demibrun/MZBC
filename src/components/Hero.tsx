@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useState } from "react";
 // ...your other imports
 
@@ -28,8 +29,14 @@ export default function Hero() {
   return (
     <div className="gradient-hero">
       <div className="mx-auto max-w-6xl px-4 py-16 text-center">
-        {/* If your logo is in /public/logo.jpg, use /logo.jpg (no ../) */}
-        <img src="/logo.jpg" alt="Church Logo" className="mx-auto h-28 w-28 object-contain" />
+        <Image
+          src="/logo.jpg"
+          alt="Church Logo"
+          width={112}
+          height={112}
+          priority
+          className="mx-auto h-28 w-28 object-contain"
+        />
 
         <h1 className="mt-6 text-3xl md:text-5xl font-extrabold text-[var(--mz-deep-blue)]">
           Mount Zion Bible Church Nigeria

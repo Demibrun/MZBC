@@ -11,5 +11,6 @@ const MediaSchema = new Schema({
   createdAt: { type: Date, default: () => new Date() },
 });
 
-const MediaItem = models?.MediaItem || model("MediaItem", MediaSchema);
+const MediaItem: mongoose.Model<any> =
+  (models.MediaItem as mongoose.Model<any>) || model<any>("MediaItem", MediaSchema);
 export default MediaItem;

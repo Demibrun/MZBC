@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   await dbConnect();
   const body = await req.json().catch(() => ({}));
-  const { kind, title, url, thumbnail } = body || {};
+  const { kind, title, url, thumbnail, provider, public_id } = body || {};
   if (!kind || !url) {
     return NextResponse.json({ error: "Missing kind or url" }, { status: 400 });
   }
@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
     title: title || "",
     url,
     thumbnail: thumbnail || "",
+    provider: provider || "",
+    public_id: public_id || "",
   });
   return NextResponse.json(created.toObject());
 }

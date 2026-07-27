@@ -124,21 +124,35 @@ const MediaItemSchema = new Schema({
 }, { timestamps: true });
 
 /** ===== Export all models (prevent recompilation in dev) ===== */
-export const User           = models.User           || model("User", UserSchema);
-export const SiteSettings   = models.SiteSettings   || model("SiteSettings", SiteSettingsSchema);
-export const Leader         = models.Leader         || model("Leader", LeaderSchema);
-export const Service        = models.Service        || model("Service", ServiceSchema);
-export const Announcement   = models.Announcement   || model("Announcement", AnnouncementSchema);
+export const User: mongoose.Model<any> =
+  (models.User as mongoose.Model<any>) || model<any>("User", UserSchema);
+export const SiteSettings: mongoose.Model<any> =
+  (models.SiteSettings as mongoose.Model<any>) || model<any>("SiteSettings", SiteSettingsSchema);
+export const Leader: mongoose.Model<any> =
+  (models.Leader as mongoose.Model<any>) || model<any>("Leader", LeaderSchema);
+export const Service: mongoose.Model<any> =
+  (models.Service as mongoose.Model<any>) || model<any>("Service", ServiceSchema);
+export const Announcement: mongoose.Model<any> =
+  (models.Announcement as mongoose.Model<any>) || model<any>("Announcement", AnnouncementSchema);
 
-export const PrayerPoint    = models.PrayerPoint    || model("PrayerPoint", PrayerPointSchema);
-export const Daily          = models.Daily          || model("Daily", DailySchema);
-export const Pastor         = models.Pastor         || model("Pastor", PastorSchema);
-export const Unit           = models.Unit           || model("Unit", UnitSchema);
-export const Humor          = models.Humor          || model("Humor", HumorSchema);
-export const Testimony      = models.Testimony      || model("Testimony", TestimonySchema);
-export const Deliverance    = models.Deliverance    || model("Deliverance", DeliveranceSchema);
-export const MinistryGroup  = models.MinistryGroup  || model("MinistryGroup", MinistryGroupSchema);
-export const MediaItem      = models.MediaItem      || model("MediaItem", MediaItemSchema);
+export const PrayerPoint: mongoose.Model<any> =
+  (models.PrayerPoint as mongoose.Model<any>) || model<any>("PrayerPoint", PrayerPointSchema);
+export const Daily: mongoose.Model<any> =
+  (models.Daily as mongoose.Model<any>) || model<any>("Daily", DailySchema);
+export const Pastor: mongoose.Model<any> =
+  (models.Pastor as mongoose.Model<any>) || model<any>("Pastor", PastorSchema);
+export const Unit: mongoose.Model<any> =
+  (models.Unit as mongoose.Model<any>) || model<any>("Unit", UnitSchema);
+export const Humor: mongoose.Model<any> =
+  (models.Humor as mongoose.Model<any>) || model<any>("Humor", HumorSchema);
+export const Testimony: mongoose.Model<any> =
+  (models.Testimony as mongoose.Model<any>) || model<any>("Testimony", TestimonySchema);
+export const Deliverance: mongoose.Model<any> =
+  (models.Deliverance as mongoose.Model<any>) || model<any>("Deliverance", DeliveranceSchema);
+export const MinistryGroup: mongoose.Model<any> =
+  (models.MinistryGroup as mongoose.Model<any>) || model<any>("MinistryGroup", MinistryGroupSchema);
+export const MediaItem: mongoose.Model<any> =
+  (models.MediaItem as mongoose.Model<any>) || model<any>("MediaItem", MediaItemSchema);
 
 
 

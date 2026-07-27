@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 
 export async function requireAdmin() {
   const ck = cookies();
-  const admin = ck.get("mzbc_admin")?.value; // <-- the cookie set at login
+  const admin = ck.get("mz_admin")?.value;
   if (admin !== "1") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

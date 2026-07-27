@@ -1,16 +1,17 @@
 // src/components/MediaPreview.tsx
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import YouTubeLite from "@/components/YouTubeLite";
 
 const YT_CHANNEL =
   "https://www.youtube.com/@MountZionPrayerMinistryI-fz9ls/videos";
 
 
 const VIDEOS = [
-  { id: "C3Ej8ewh4BE", title: "Recovering Your Changed Destiny" },
-  { id: "XICJmTCnfJ4", title: "Trusting God's Faithfullness for All Provisions" },
-  { id: "EE6elPu3PiM", title: "Overcoming the Thief of God's Blessing -DOUBT-" },
-  { id: "VKnGhDa8gAo", title: "Breaking the Connection of Evil Dreams into Reality" },
+  { id: "jyzOFsvSh4g", title: "HGVS// THE SPIRIT OF THANKSGIVING- PST DAVID JESSE// 26-07-2026" },
+  { id: "xR6V2uCBqIk", title: "DELIVERANCE AND MIRACLE HOUR" },
+  { id: "EB4tU4_3Ijw", title: "How to kill Demonic birds- Pst Banke Jesse #Jesus #love #holyspirit #inspiration" },
+  { id: "55iUJSWbU-Y", title: "WORD LIBERATION HOUR// 22-07-2026" },
 ];
 
 export default function MediaPreview() {
@@ -33,17 +34,7 @@ export default function MediaPreview() {
       <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {VIDEOS.map((v) => (
           <div key={v.id} className="w-full overflow-hidden rounded-xl border">
-            <div className="aspect-video w-full">
-              <iframe
-                className="h-full w-full"
-                src={`https://www.youtube.com/embed/${v.id}`}
-                title={v.title}
-                loading="lazy"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-              />
-            </div>
+            <YouTubeLite id={v.id} title={v.title} />
             <div className="px-3 py-2 text-sm text-[var(--mz-dark)]/80 line-clamp-1">
               {v.title}
             </div>

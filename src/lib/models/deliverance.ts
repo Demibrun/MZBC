@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model, models } from "mongoose";
 
 const DeliveranceSchema = new Schema(
   {
@@ -10,4 +10,8 @@ const DeliveranceSchema = new Schema(
 );
 
 // single document collection
-export default models.Deliverance || model("Deliverance", DeliveranceSchema);
+const Deliverance: mongoose.Model<any> =
+  (models.Deliverance as mongoose.Model<any>) ||
+  model<any>("Deliverance", DeliveranceSchema);
+
+export default Deliverance;

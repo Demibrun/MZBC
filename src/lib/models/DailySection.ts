@@ -24,5 +24,8 @@ const DailySectionSchema = new Schema(
   { timestamps: true }
 );
 
-export default models.DailySection ||
-  mongoose.model("DailySection", DailySectionSchema);
+const DailySection: mongoose.Model<any> =
+  (models.DailySection as mongoose.Model<any>) ||
+  mongoose.model<any>("DailySection", DailySectionSchema);
+
+export default DailySection;

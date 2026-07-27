@@ -3,12 +3,7 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { ObjectId } from "mongodb";
 import { dbConnect } from "@/lib/db";
-
-// Simple cookie-based auth (must match your /api/auth/login setter)
-function isAuthedFromCookie(req: Request) {
-  const cookie = req.headers.get("cookie") || "";
-  return /ADMIN_SESSION=ok/.test(cookie);
-}
+import { requireAdmin } from "@/lib/auth";
 
 export async function GET() {
   await dbConnect();
@@ -26,9 +21,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (!isAuthedFromCookie(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
 
   await dbConnect();
   const body = await req.json().catch(() => ({}));
@@ -50,9 +44,8 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  if (!isAuthedFromCookie(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
 
   await dbConnect();
   const body = await req.json().catch(() => ({}));
@@ -76,9 +69,8 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!isAuthedFromCookie(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const notAdmin = requireAdmin();
+  if (notAdmin) return notAdmin;
 
   await dbConnect();
   const { searchParams } = new URL(req.url);

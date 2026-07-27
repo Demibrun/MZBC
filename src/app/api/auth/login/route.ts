@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   res.cookies.set({
     name: "mz_admin",
     value: "1",
-    httpOnly: false, // you read it client-side with fetch credentials
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",               // <-- IMPORTANT so it’s sent to ALL routes

@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model, models } from "mongoose";
 
 const HumorSchema = new Schema(
   {
@@ -10,4 +10,7 @@ const HumorSchema = new Schema(
 );
 
 // single document collection
-export default models.Humor || model("Humor", HumorSchema);
+const Humor: mongoose.Model<any> =
+  (models.Humor as mongoose.Model<any>) || model<any>("Humor", HumorSchema);
+
+export default Humor;

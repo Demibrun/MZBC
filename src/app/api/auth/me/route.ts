@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { isAdmin } from "@/lib/auth";
 
 export async function GET() {
-  const isAdmin = cookies().get("mzbc_admin")?.value === "1";
-  return NextResponse.json({ ok: isAdmin });
+  return NextResponse.json({ ok: isAdmin() });
 }

@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { headers } from "next/headers";
+import YouTubeLite from "@/components/YouTubeLite";
 
 type Media = {
   _id: string;
@@ -47,12 +48,10 @@ export default async function MediaPage() {
               {/* Render previews */}
               <div className="mt-3">
                 {m.kind === "youtube" && (
-                  <iframe
-                    className="w-full aspect-video rounded"
-                    src={`https://www.youtube.com/embed/${m.url}`}
+                  <YouTubeLite
+                    id={m.url}
                     title={m.title || "YouTube"}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
+                    className="rounded"
                   />
                 )}
 

@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model, models } from "mongoose";
 
 const UnitSchema = new Schema(
   {
@@ -10,4 +10,7 @@ const UnitSchema = new Schema(
   { timestamps: true }
 );
 
-export default models.Unit || model("Unit", UnitSchema);
+const Unit: mongoose.Model<any> =
+  (models.Unit as mongoose.Model<any>) || model<any>("Unit", UnitSchema);
+
+export default Unit;

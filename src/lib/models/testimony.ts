@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema, model, models } from "mongoose";
 
 const TestimonySchema = new Schema(
   {
@@ -18,4 +18,8 @@ export type TestimonyDoc = {
   approved?: boolean;
 };
 
-export default models.Testimony || model("Testimony", TestimonySchema);
+const Testimony: mongoose.Model<any> =
+  (models.Testimony as mongoose.Model<any>) ||
+  model<any>("Testimony", TestimonySchema);
+
+export default Testimony;
