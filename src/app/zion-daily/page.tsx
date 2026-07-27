@@ -113,6 +113,9 @@ export default function ZionDailyPage() {
     () => new Map(sections.map((s) => [s.key, s] as const)),
     [sections]
   );
+  const activeEntry = open ? sectionByKey.get(open.key)?.items[open.index] : null;
+  const isSundayMedia =
+    open?.key === "sundaySchool" && !!activeEntry?.mediaKind && !!activeEntry?.mediaUrl;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
@@ -172,37 +175,57 @@ export default function ZionDailyPage() {
 
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40">
-          <div className="w-[92vw] max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-black/10">
+          <div
+            className={`w-[94vw] max-h-[88vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-black/10 ${
+              isSundayMedia ? "max-w-5xl" : "max-w-2xl"
+            }`}
+          >
             <div className="flex items-center justify-between px-5 py-4 border-b border-black/10">
               <h3 className="text-lg font-semibold text-[var(--mz-deep-blue)]">
-                {sectionByKey.get(open.key)?.items[open.index]?.title ?? "Details"}
+                {activeEntry?.title ?? "Details"}
               </h3>
-              <button
-                onClick={() => setOpen(null)}
-                className="rounded-md p-2 hover:bg-black/5"
-                aria-label="Close"
-              >
+              <div className="flex items-center gap-2">
+                {isSundayMedia && activeEntry?.mediaUrl ? (
+                  <a
+                    href={mediaHref(activeEntry.mediaKind, activeEntry.mediaUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-black/5"
+                  >
+                    Open media
+                  </a>
+                ) : null}
+                <button
+                  onClick={() => setOpen(null)}
+                  className="rounded-md p-2 hover:bg-black/5"
+                  aria-label="Close"
+                >
                 ✕
-              </button>
+                </button>
+              </div>
             </div>
 
             <div className="px-5 py-4">
               {(() => {
-                const it = sectionByKey.get(open.key)?.items[open.index];
+                const it = activeEntry;
                 if (!it) return <p className="text-sm text-gray-600">Not found.</p>;
 
+                const hasMedia =
+                  open.key === "sundaySchool" && it.mediaKind && it.mediaUrl;
+
                 return (
-                  <>
-                    {it.subtitle && (
-                      <p className="text-sm font-medium text-[var(--mz-deep-blue)]/80">{it.subtitle}</p>
-                    )}
-                    <div className="mt-2 whitespace-pre-wrap leading-relaxed text-[var(--mz-dark)]">
-                      {it.text}
+                  <div className={hasMedia ? "grid gap-5 lg:grid-cols-[1fr_1.35fr]" : ""}>
+                    <div>
+                      {it.subtitle && (
+                        <p className="text-sm font-medium text-[var(--mz-deep-blue)]/80">{it.subtitle}</p>
+                      )}
+                      <div className="mt-2 whitespace-pre-wrap leading-relaxed text-[var(--mz-dark)]">
+                        {it.text}
+                      </div>
                     </div>
 
-                    {/* Media ONLY makes sense for Sunday School */}
-                    {open.key === "sundaySchool" && it.mediaKind && it.mediaUrl ? (
-                      <div className="mt-4">
+                    {hasMedia ? (
+                      <div className="lg:sticky lg:top-4">
                         <RenderMedia
                           kind={it.mediaKind}
                           url={it.mediaUrl}
@@ -210,7 +233,7 @@ export default function ZionDailyPage() {
                         />
                       </div>
                     ) : null}
-                  </>
+                  </div>
                 );
               })()}
             </div>
@@ -256,6 +279,14 @@ function RenderMedia({
   }
 
   return null;
+}
+
+function mediaHref(kind: Entry["mediaKind"], url: string) {
+  if (kind === "youtube") {
+    const id = getYouTubeId(url);
+    return id ? `https://youtu.be/${id}` : url;
+  }
+  return url;
 }
 
 function getYouTubeId(input: string): string | null {

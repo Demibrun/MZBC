@@ -2,6 +2,10 @@
 
 import { Url } from "next/dist/shared/lib/router/router";
 import { useEffect, useState } from "react";
+import {
+  uploadAdminMediaFile,
+  type UploadProgress,
+} from "@/lib/clientUploads";
 async function api<T = any>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     credentials: "include",
@@ -27,6 +31,31 @@ async function api<T = any>(url: string, init?: RequestInit): Promise<T> {
   try { return JSON.parse(text) as T; } catch { return text as unknown as T; }
 }
 
+function fileSizeLabel(bytes: number) {
+  if (!bytes) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
+function UploadProgressBar({ progress }: { progress: UploadProgress | null }) {
+  if (!progress) return null;
+
+  return (
+    <div className="mt-3 rounded border bg-gray-50 p-3" aria-live="polite">
+      <div className="mb-2 flex items-center justify-between text-sm">
+        <span className="font-medium">{progress.label}</span>
+        <span>{progress.percent}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded bg-gray-200">
+        <div
+          className="h-full rounded bg-[var(--mz-primary-blue)] transition-all"
+          style={{ width: `${Math.min(100, Math.max(0, progress.percent))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // >>> ADDED: SundaySchoolQuickAdd — inline helper just for Sunday School media
 function SundaySchoolQuickAdd({ onSaved }: { onSaved: () => void }) {
   const [date, setDate] = useState("");
@@ -39,23 +68,16 @@ function SundaySchoolQuickAdd({ onSaved }: { onSaved: () => void }) {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
   async function uploadToCloudinary(kind: "audio" | "video") {
     if (!file) throw new Error("Choose a file");
-    const fd = new FormData();
-    fd.append("kind", kind);
-    fd.append("title", title || "Sunday School media");
-    fd.append("file", file);
-    const res = await fetch("/api/media/upload", {
-      method: "POST",
-      body: fd,
-      credentials: "include",
+    return uploadAdminMediaFile({
+      file,
+      kind,
+      title: title || "Sunday School media",
+      onProgress: setUploadProgress,
     });
-    if (!res.ok) {
-      const msg = await res.text().catch(() => "");
-      throw new Error(msg || "Upload failed");
-    }
-    return res.json() as Promise<{ url: string; thumbnail?: string }>;
   }
 
   async function save() {
@@ -98,7 +120,7 @@ function SundaySchoolQuickAdd({ onSaved }: { onSaved: () => void }) {
 
       // reset small fields
       setDate(""); setTitle(""); setSubtitle(""); setText("");
-      setMode("none"); setYoutubeUrl(""); setFile(null);
+      setMode("none"); setYoutubeUrl(""); setFile(null); setUploadProgress(null);
 
       onSaved?.();
       alert("Saved to Sunday School");
@@ -176,11 +198,22 @@ function SundaySchoolQuickAdd({ onSaved }: { onSaved: () => void }) {
         )}
 
         {(mode === "audio" || mode === "video") && (
-          <input
-            type="file"
-            accept={mode === "audio" ? "audio/*" : "video/*"}
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-          />
+          <>
+            <input
+              type="file"
+              accept={mode === "audio" ? "audio/*" : "video/*"}
+              onChange={(e) => {
+                setFile(e.target.files?.[0] || null);
+                setUploadProgress(null);
+              }}
+            />
+            {file && (
+              <p className="text-xs text-gray-600">
+                Selected: {file.name} ({fileSizeLabel(file.size)})
+              </p>
+            )}
+            <UploadProgressBar progress={uploadProgress} />
+          </>
         )}
       </div>
 
@@ -755,6 +788,9 @@ async function delPp(id: string) {
   const [mTitle, setMTitle] = useState("");
   const [mUrl, setMUrl] = useState("");
   const [mThumb, setMThumb] = useState("");
+  const [mUploadProgress, setMUploadProgress] = useState<UploadProgress | null>(null);
+  const [mFilter, setMFilter] =
+    useState<"all" | "youtube" | "photo" | "audio">("all");
   async function loadMedia() {
     try {
       const d = await api<{ items?: Media[] }>("/api/media");
@@ -803,6 +839,14 @@ async function delPp(id: string) {
       setBusy(false);
     }
   }
+  const filteredMedia =
+    mFilter === "all" ? media : media.filter((item) => item.kind === mFilter);
+  const mediaCounts = {
+    all: media.length,
+    youtube: media.filter((item) => item.kind === "youtube").length,
+    photo: media.filter((item) => item.kind === "photo").length,
+    audio: media.filter((item) => item.kind === "audio").length,
+  };
 
   if (authed === null)
     return (
@@ -1307,6 +1351,7 @@ async function delPp(id: string) {
           onChange={(e) => {
             setMKind(e.target.value as any);
             setMFile(null);
+            setMUploadProgress(null);
           }}
           className="mt-1 w-full rounded border px-3 py-2"
         >
@@ -1344,7 +1389,10 @@ async function delPp(id: string) {
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => setMFile(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                setMFile(e.target.files?.[0] || null);
+                setMUploadProgress(null);
+              }}
               className="mt-1 w-full rounded border px-3 py-2"
             />
           </label>
@@ -1356,12 +1404,23 @@ async function delPp(id: string) {
             <input
               type="file"
               accept="audio/*"
-              onChange={(e) => setMFile(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                setMFile(e.target.files?.[0] || null);
+                setMUploadProgress(null);
+              }}
               className="mt-1 w-full rounded border px-3 py-2"
             />
           </label>
         )}
       </div>
+
+      {mFile && mKind !== "youtube" && (
+        <p className="mt-3 text-sm text-gray-600">
+          Selected: {mFile.name} ({fileSizeLabel(mFile.size)})
+          {mKind === "photo" ? " - images are compressed before upload." : ""}
+        </p>
+      )}
+      <UploadProgressBar progress={mUploadProgress} />
 
       <button
         disabled={busy}
@@ -1385,20 +1444,12 @@ async function delPp(id: string) {
               if (!mFile) {
                 alert("Please choose a file to upload");
               } else {
-                const fd = new FormData();
-                fd.append("kind", mKind);
-                fd.append("title", mTitle || "");
-                fd.append("file", mFile);
-
-                const uploadRes = await fetch("/api/upload", {
-                  method: "POST",
-                  body: fd,
-                  credentials: "include",
+                const uploaded = await uploadAdminMediaFile({
+                  file: mFile,
+                  kind: mKind,
+                  title: mTitle || "",
+                  onProgress: setMUploadProgress,
                 });
-                const uploaded = await uploadRes.json().catch(() => ({}));
-                if (!uploadRes.ok) {
-                  throw new Error(uploaded?.error || "Upload failed");
-                }
 
                 await api("/api/media", {
                   method: "POST",
@@ -1418,6 +1469,7 @@ async function delPp(id: string) {
             setMUrl("");
             setMThumb("");
             setMFile(null);
+            setMUploadProgress(null);
             loadMedia();
             done("Added");
           } catch (e: any) {
@@ -1433,9 +1485,32 @@ async function delPp(id: string) {
     </div>
 
     <div className="rounded-xl border bg-white p-5">
-      <h2 className="text-xl font-bold mb-3">List</h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-bold">List</h2>
+        <div className="flex flex-wrap gap-2">
+          {(["all", "youtube", "photo", "audio"] as const).map((kind) => (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => setMFilter(kind)}
+              className={`rounded border px-3 py-1.5 text-sm ${
+                mFilter === kind
+                  ? "bg-[var(--mz-primary-blue)] text-white"
+                  : "bg-white text-gray-700"
+              }`}
+            >
+              {kind === "all" ? "All" : kind[0].toUpperCase() + kind.slice(1)}
+              {" "}
+              ({mediaCounts[kind]})
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="grid md:grid-cols-3 gap-3">
-        {media.map((m) => (
+        {filteredMedia.length === 0 && (
+          <p className="text-sm text-gray-600">No media in this category yet.</p>
+        )}
+        {filteredMedia.map((m) => (
           <div key={m._id} className="border rounded p-3">
             <div className="text-xs uppercase text-gray-500">{m.kind}</div>
             <div className="font-semibold break-words">{m.title}</div>

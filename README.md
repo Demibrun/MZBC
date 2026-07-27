@@ -23,9 +23,10 @@ Copy `.env.example` into your local or Vercel environment settings and fill in:
 - `MONGODB_URI` and `MONGODB_DB_NAME`
 - `ADMIN_PASSWORD`
 - `CLOUDINARY_URL` or the three Cloudinary key variables
-- upload limits: `UPLOAD_MAX_FILE_MB`, `UPLOAD_DAILY_LIMIT_MB`, `UPLOAD_WEEKLY_LIMIT_MB`, `UPLOAD_DAILY_LIMIT_COUNT`
+- fallback Vercel upload limits: `UPLOAD_MAX_FILE_MB`, `UPLOAD_DAILY_LIMIT_MB`, `UPLOAD_WEEKLY_LIMIT_MB`, `UPLOAD_DAILY_LIMIT_COUNT`
+- direct Cloudinary upload limits: `UPLOAD_DIRECT_MAX_FILE_MB`, `UPLOAD_DIRECT_DAILY_LIMIT_MB`, `UPLOAD_DIRECT_WEEKLY_LIMIT_MB`
 
-The upload limits protect the free Vercel plan by rejecting oversized or excessive admin uploads before storing files.
+Admin media uploads use browser image compression and direct Cloudinary uploads when Cloudinary is configured, so large files do not pass through Vercel. The `/api/upload` route remains as a small local/dev fallback and should stay conservative on Vercel. For very large videos, livestream exports, or archive files, the church should upload to YouTube or Google Drive and paste/share the link instead of storing the file through the website.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

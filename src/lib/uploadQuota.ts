@@ -50,8 +50,11 @@ function addDays(now: Date, days: number) {
 export function getUploadQuota() {
   return {
     maxFileBytes: numberEnv("UPLOAD_MAX_FILE_MB", 4) * MB,
+    directMaxFileBytes: numberEnv("UPLOAD_DIRECT_MAX_FILE_MB", 100) * MB,
     dailyBytes: numberEnv("UPLOAD_DAILY_LIMIT_MB", 25) * MB,
+    directDailyBytes: numberEnv("UPLOAD_DIRECT_DAILY_LIMIT_MB", 250) * MB,
     weeklyBytes: numberEnv("UPLOAD_WEEKLY_LIMIT_MB", 100) * MB,
+    directWeeklyBytes: numberEnv("UPLOAD_DIRECT_WEEKLY_LIMIT_MB", 1000) * MB,
     dailyCount: numberEnv("UPLOAD_DAILY_LIMIT_COUNT", 20),
   };
 }
@@ -60,12 +63,18 @@ function mb(bytes: number) {
   return Math.round((bytes / MB) * 10) / 10;
 }
 
-export async function checkUploadQuota(fileSize: number) {
+export async function checkUploadQuota(
+  fileSize: number,
+  opts?: { maxFileBytes?: number; dailyBytes?: number; weeklyBytes?: number }
+) {
   const quota = getUploadQuota();
+  const maxFileBytes = opts?.maxFileBytes ?? quota.maxFileBytes;
+  const dailyLimitBytes = opts?.dailyBytes ?? quota.dailyBytes;
+  const weeklyLimitBytes = opts?.weeklyBytes ?? quota.weeklyBytes;
 
-  if (fileSize > quota.maxFileBytes) {
+  if (fileSize > maxFileBytes) {
     return NextResponse.json(
-      { error: `File is too large. Maximum upload size is ${mb(quota.maxFileBytes)} MB.` },
+      { error: `File is too large. Maximum upload size is ${mb(maxFileBytes)} MB.` },
       { status: 413 }
     );
   }
@@ -91,16 +100,16 @@ export async function checkUploadQuota(fileSize: number) {
     );
   }
 
-  if (dailyBytes + fileSize > quota.dailyBytes) {
+  if (dailyBytes + fileSize > dailyLimitBytes) {
     return NextResponse.json(
-      { error: `Daily upload size reached. Limit: ${mb(quota.dailyBytes)} MB/day.` },
+      { error: `Daily upload size reached. Limit: ${mb(dailyLimitBytes)} MB/day.` },
       { status: 429 }
     );
   }
 
-  if (weeklyBytes + fileSize > quota.weeklyBytes) {
+  if (weeklyBytes + fileSize > weeklyLimitBytes) {
     return NextResponse.json(
-      { error: `Weekly upload size reached. Limit: ${mb(quota.weeklyBytes)} MB/week.` },
+      { error: `Weekly upload size reached. Limit: ${mb(weeklyLimitBytes)} MB/week.` },
       { status: 429 }
     );
   }
