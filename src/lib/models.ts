@@ -63,13 +63,30 @@ const PrayerPointSchema = new Schema({
 }, { timestamps: true });
 
 // “Zion Daily”: word, prophetic, sunday school, devotional, homecare
-const DailySchema = new Schema({
-  wordOfDay: String,
-  propheticDeclaration: String,
-  sundaySchool: String,
-  devotional: String,
-  homecareFellowship: String,
-}, { timestamps: true });
+const DailyEntrySchema = new Schema(
+  {
+    date: String,
+    title: { type: String, required: true },
+    subtitle: String,
+    text: { type: String, required: true },
+    mediaKind: { type: String, enum: ["youtube", "audio", "video", null], default: null },
+    mediaUrl: String,
+    mediaTitle: String,
+    thumbnail: String,
+  },
+  { _id: true, timestamps: true }
+);
+
+const DailySchema = new Schema(
+  {
+    wordOfDay: { items: { type: [DailyEntrySchema], default: [] } },
+    prophetic: { items: { type: [DailyEntrySchema], default: [] } },
+    sundaySchool: { items: { type: [DailyEntrySchema], default: [] } },
+    devotional: { items: { type: [DailyEntrySchema], default: [] } },
+    homecare: { items: { type: [DailyEntrySchema], default: [] } },
+  },
+  { timestamps: true }
+);
 
 // Work Force: pastors and units
 const PastorSchema = new Schema({
@@ -157,7 +174,7 @@ export const MediaItem: mongoose.Model<any> =
 
 
 // Entry for each day's content
-const DailyEntrySchema = new Schema(
+const DailySectionEntrySchema = new Schema(
   {
     date: { type: String }, // display string or ISO date; optional for flexibility
     title: { type: String, required: true },
@@ -176,7 +193,7 @@ const DailySectionSchema = new Schema(
       required: true,
       unique: true,
     },
-    items: { type: [DailyEntrySchema], default: [] },
+    items: { type: [DailySectionEntrySchema], default: [] },
   },
   { timestamps: true }
 );

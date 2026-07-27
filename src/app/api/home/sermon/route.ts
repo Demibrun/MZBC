@@ -26,7 +26,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const notAdmin = requireAdmin();
+  const notAdmin = await requireAdmin();
   if (notAdmin) return notAdmin;
 
   await dbConnect();
