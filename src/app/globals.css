@@ -2,71 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Your custom variables */
 :root {
   --mz-primary-blue: #0b3b8c;
   --mz-deep-blue: #003366;
   --mz-gold: #f1c14b;
   --mz-sky-blue: #36a3ff;
-  --shadow: 0 4px 10px rgba(0,0,0,0.08);
+  --mz-green: #159447;
+  --mz-dark: #172033;
+  --mz-light: #f7f9fc;
+  --mz-border: rgba(11, 59, 140, 0.12);
+  --shadow: 0 12px 32px rgba(13, 38, 76, 0.1);
 }
 
-/* Example base styles */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-slate-50 text-gray-900 antialiased;
+  color: var(--mz-dark);
 }
 
-/* Now you can safely use @layer */
 @layer components {
   .btn-primary {
-    @apply text-white px-4 py-2 rounded-xl;
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition;
     background-color: var(--mz-primary-blue);
     box-shadow: var(--shadow);
   }
+
   .btn-primary:hover {
     background-color: #1658bd;
   }
 
   .btn-gold {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition;
     color: #0b3b8c;
     background-color: var(--mz-gold);
   }
 
   .chip {
-    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
     background-color: color-mix(in srgb, var(--mz-sky-blue) 15%, transparent);
     color: var(--mz-deep-blue);
   }
 
   .h1 {
-    @apply text-4xl md:text-5xl font-extrabold;
+    @apply text-4xl font-extrabold tracking-normal md:text-5xl;
     color: var(--mz-deep-blue);
+  }
+
+  .h2 {
+    @apply text-2xl font-bold tracking-normal md:text-3xl;
+    color: var(--mz-deep-blue);
+  }
+
+  .section {
+    @apply mx-auto max-w-6xl px-4 py-12 md:py-16;
+  }
+
+  .section-kicker {
+    @apply text-xs font-bold uppercase tracking-[0.18em] text-[var(--mz-primary-blue)];
+  }
+
+  .section-subtitle {
+    @apply mt-2 max-w-2xl text-sm leading-7 md:text-base;
+    color: color-mix(in srgb, var(--mz-dark) 70%, transparent);
+  }
+
+  .card {
+    @apply overflow-hidden rounded-lg border bg-white shadow-sm transition;
+    border-color: var(--mz-border);
+  }
+
+  .card:hover {
+    @apply shadow-md;
+    transform: translateY(-1px);
+  }
+
+  .soft-panel {
+    @apply rounded-lg border bg-white/85 shadow-sm;
+    border-color: var(--mz-border);
+  }
+
+  .input-polish {
+    @apply rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:ring-2;
+  }
+
+  .input-polish:focus {
+    border-color: var(--mz-primary-blue);
+    --tw-ring-color: color-mix(in srgb, var(--mz-primary-blue) 15%, transparent);
   }
 }
 
-  .h2{
-    @apply text-3xl font-bold;
-    color: var(--mz-deep-blue);
-  }
-
-
-/* Hero gradient and other classes can stay as before */
-.gradient-hero{
+.gradient-hero {
   background:
-    radial-gradient(60% 60% at 70% 10%, rgba(241,193,75,.18) 0%, transparent 60%),
-    radial-gradient(80% 80% at -10% 10%, rgba(54,163,255,.20) 0%, transparent 62%),
-    linear-gradient(180deg, rgba(14,98,198,.06) 0%, transparent 60%);
+    linear-gradient(90deg, rgba(0, 51, 102, 0.9), rgba(11, 59, 140, 0.72)),
+    url("/uploads/sunday.jpg");
+  background-size: cover;
+  background-position: center;
 }
 
-.frame-16x9{ @apply relative w-full overflow-hidden bg-white/40 rounded-t-2xl; }
-.frame-16x9 > img{ @apply h-full w-full object-cover; aspect-ratio: 16/9; }
+.frame-16x9 {
+  @apply relative w-full overflow-hidden bg-white/40;
+}
 
-.loader-full{ @apply fixed inset-0 z-[9999] grid place-items-center bg-white; }
-.logo-breathe{
+.frame-16x9 > img {
+  @apply h-full w-full object-cover;
+  aspect-ratio: 16/9;
+}
+
+.loader-full {
+  @apply fixed inset-0 z-[9999] grid place-items-center bg-white;
+}
+
+.logo-breathe {
   animation: breathe 2.2s ease-in-out infinite;
-  filter: drop-shadow(0 8px 20px rgba(241,193,75,.35));
+  filter: drop-shadow(0 8px 20px rgba(241, 193, 75, 0.35));
 }
-@keyframes breathe{
-  0%,100%{ transform: scale(1); opacity:.95; }
-  50%{ transform: scale(1.07); opacity:1; }
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.07);
+    opacity: 1;
+  }
 }

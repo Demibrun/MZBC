@@ -882,8 +882,8 @@ async function delPp(id: string) {
 
   if (!authed) {
     return (
-      <main className="max-w-md mx-auto px-4 py-16">
-        <h1 className="text-2xl font-bold mb-4">Admin Login</h1>
+      <main className="mx-auto max-w-md px-4 py-16">
+        <h1 className="text-2xl font-bold mb-4 text-[var(--mz-deep-blue)]">Admin Login</h1>
         <form onSubmit={handleLogin} className="grid gap-3">
           <label className="block">
             <span className="text-sm font-medium">Password</span>
@@ -906,18 +906,21 @@ async function delPp(id: string) {
   }
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+    <main className="mx-auto max-w-6xl px-4 py-8">
+      <div className="mb-5">
+        <p className="section-kicker">Website control</p>
+        <h1 className="mt-2 text-3xl font-bold text-[var(--mz-deep-blue)]">Admin Dashboard</h1>
+      </div>
 
       <div className="flex flex-wrap gap-2 mb-6">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-3 py-2 rounded ${
+            className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
               tab === t
-                ? "bg-black text-white"
-                : "bg-gray-100 hover:bg-gray-200"
+                ? "border-[var(--mz-primary-blue)] bg-[var(--mz-primary-blue)] text-white"
+                : "border-[var(--mz-border)] bg-white text-[var(--mz-deep-blue)] hover:bg-slate-100"
             }`}
           >
             {t}
@@ -926,7 +929,7 @@ async function delPp(id: string) {
       </div>
 
       {toast && (
-        <div className="mb-4 rounded bg-green-600 text-white px-3 py-2">
+        <div className="mb-4 rounded-lg bg-[var(--mz-green)] px-3 py-2 text-white shadow-sm">
           {toast}
         </div>
       )}
@@ -1455,7 +1458,7 @@ async function delPp(id: string) {
                 setMFile(e.target.files?.[0] || null);
                 setMUploadProgress(null);
               }}
-              className="mt-1 w-full rounded border px-3 py-2"
+              className="input-polish mt-1 w-full"
             />
           </label>
         )}
@@ -1668,7 +1671,7 @@ async function delPp(id: string) {
     <button
       disabled={busy}
       onClick={saveHumor}
-      className="rounded bg-[var(--mz-primary-blue)] px-4 py-2 font-semibold text-white"
+            className="btn-primary"
     >
       {busy ? "Saving…" : "Save"}
     </button>

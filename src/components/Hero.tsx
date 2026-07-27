@@ -27,29 +27,35 @@ export default function Hero() {
   }
 
   return (
-    <div className="gradient-hero">
-      <div className="mx-auto max-w-6xl px-4 py-16 text-center">
+    <div className="gradient-hero relative overflow-hidden">
+      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-50 to-transparent" />
+      <div className="relative mx-auto max-w-6xl px-4 py-16 text-center md:py-24">
         <Image
           src="/logo.jpg"
           alt="Church Logo"
           width={112}
           height={112}
           priority
-          className="mx-auto h-28 w-28 object-contain"
+          className="mx-auto h-24 w-24 rounded-full object-cover ring-4 ring-white/30 shadow-2xl md:h-28 md:w-28"
         />
 
-        <h1 className="mt-6 text-3xl md:text-5xl font-extrabold text-[var(--mz-deep-blue)]">
+        <p className="mt-6 text-xs font-bold uppercase tracking-[0.22em] text-[var(--mz-gold)]">
+          Welcome to Zion
+        </p>
+        <h1 className="mx-auto mt-3 max-w-4xl text-4xl font-extrabold leading-tight text-white md:text-6xl">
           Mount Zion Bible Church Nigeria
         </h1>
-        <p className="mt-3 text-lg md:text-xl">Zion, where captives become captains.</p>
+        <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-white/86 md:text-xl">
+          Zion, where captives become captains.
+        </p>
 
         {/* Buttons row (kept exactly; Watch uses your btn-primary too) */}
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <a href="#visit" className="btn-primary">Plan Your Visit</a>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <a href="#visit" className="btn-gold">Plan Your Visit</a>
 
           <button
             onClick={() => setLiveOpen(true)}
-            className="btn-primary"
+            className="btn-primary border border-white/20"
           >
             Watch Live
           </button>
@@ -59,7 +65,7 @@ export default function Hero() {
         <div className="mt-3 flex items-center justify-center">
           <button
             onClick={() => setGiveOpen(true)}
-            className="bg-[var(--mz-green)]/90 text-blue px-6 py-3 rounded-lg font-semibold shadow hover:scale-105 transition"
+            className="inline-flex rounded-lg border border-white/25 bg-white/10 px-6 py-3 text-sm font-semibold text-white shadow backdrop-blur transition hover:bg-white/18"
           >
             Give to the Mission
           </button>

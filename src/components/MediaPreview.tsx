@@ -16,26 +16,32 @@ const VIDEOS = [
 
 export default function MediaPreview() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-12">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <h2 className="text-2xl md:text-3xl font-bold text-[var(--mz-deep-blue)]">
-          Media Highlights
-        </h2>
+    <section className="section">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="section-kicker">Latest messages</p>
+          <h2 className="h2 mt-2">Media Highlights</h2>
+          <p className="section-subtitle">
+            Recent services and teachings from the Mount Zion media channel.
+          </p>
+        </div>
         <div className="flex items-center gap-2">
-          <Link href="/media" className="text-sm underline">
+          <Link href="/media" className="btn-primary">
             See more
           </Link>
           <a href={YT_CHANNEL} target="_blank" rel="noreferrer">
-            <Button size="sm" variant="outline">View Channel</Button>
+            <Button size="sm" variant="outline" className="rounded-lg">
+              View Channel
+            </Button>
           </a>
         </div>
       </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {VIDEOS.map((v) => (
-          <div key={v.id} className="w-full overflow-hidden rounded-xl border">
+          <div key={v.id} className="card">
             <YouTubeLite id={v.id} title={v.title} />
-            <div className="px-3 py-2 text-sm text-[var(--mz-dark)]/80 line-clamp-1">
+            <div className="px-4 py-3 text-sm font-medium text-[var(--mz-dark)]/80 line-clamp-2">
               {v.title}
             </div>
           </div>

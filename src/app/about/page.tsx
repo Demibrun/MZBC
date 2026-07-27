@@ -35,10 +35,11 @@ export default async function AboutPage() {
   const byKey = Object.fromEntries(docs.map((d) => [d.key, d]));
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10 grid gap-8">
+    <main className="section grid gap-8">
       <header>
-        <h1 className="text-2xl font-bold">About</h1>
-        <p className="text-sm text-gray-600">
+        <p className="section-kicker">Our family</p>
+        <h1 className="h1 mt-2">About</h1>
+        <p className="section-subtitle">
           Learn more about the sub-ministries at Mount Zion Bible Church.
         </p>
       </header>
@@ -47,16 +48,18 @@ export default async function AboutPage() {
         {groupsMeta.map((g) => {
           const doc = byKey[g.key] as GroupDoc | undefined;
           return (
-            <section key={g.key} className="border rounded-lg p-4 bg-white">
-              <h2 className="text-xl font-semibold">{doc?.title || g.title}</h2>
+            <section key={g.key} className="card p-5">
+              <h2 className="text-xl font-semibold text-[var(--mz-deep-blue)]">
+                {doc?.title || g.title}
+              </h2>
               {doc?.photoUrl && (
                 <img
                   src={doc.photoUrl}
                   alt={doc.title || g.title}
-                  className="mt-3 h-44 w-full object-cover rounded"
+                  className="mt-4 h-52 w-full rounded-lg object-cover"
                 />
               )}
-              <p className="mt-3 whitespace-pre-wrap">
+              <p className="mt-4 whitespace-pre-wrap leading-7 text-[var(--mz-dark)]/75">
                 {doc?.body || "Details coming soon."}
               </p>
             </section>

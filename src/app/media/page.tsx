@@ -61,11 +61,12 @@ export default async function MediaPage({
   };
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10">
+    <main className="section">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Media</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="section-kicker">Church media</p>
+          <h1 className="h1 mt-2">Media</h1>
+          <p className="section-subtitle">
             Browse church videos, photos, and audio messages by category.
           </p>
         </div>
@@ -74,10 +75,10 @@ export default async function MediaPage({
             <a
               key={kind}
               href={kind === "all" ? "/media" : `/media?kind=${kind}`}
-              className={`rounded border px-3 py-1.5 text-sm ${
+              className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
                 activeKind === kind
-                  ? "bg-[var(--mz-primary-blue)] text-white"
-                  : "bg-white text-gray-700"
+                  ? "border-[var(--mz-primary-blue)] bg-[var(--mz-primary-blue)] text-white"
+                  : "border-[var(--mz-border)] bg-white text-gray-700 hover:bg-slate-100"
               }`}
             >
               {labelFor(kind)} ({counts[kind]})
@@ -87,13 +88,20 @@ export default async function MediaPage({
       </div>
 
       {filteredItems.length === 0 ? (
-        <p>No media uploaded yet.</p>
+        <div className="soft-panel p-8 text-center">
+          <p className="font-semibold text-[var(--mz-deep-blue)]">No media uploaded yet.</p>
+          <p className="mt-1 text-sm text-[var(--mz-dark)]/65">
+            Check another category or come back after the next upload.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((m) => (
-            <article key={m._id} className="rounded-xl border bg-white p-4">
-              <div className="text-xs uppercase text-gray-500 mb-1">{m.kind}</div>
-              {m.title && <h3 className="font-semibold">{m.title}</h3>}
+            <article key={m._id} className="card p-4">
+              <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[var(--mz-primary-blue)]">
+                {m.kind}
+              </div>
+              {m.title && <h3 className="font-semibold text-[var(--mz-deep-blue)]">{m.title}</h3>}
 
               {/* Render previews */}
               <div className="mt-3">
@@ -110,7 +118,7 @@ export default async function MediaPage({
                   <img
                     src={m.thumbnail || m.url}
                     alt={m.title || "Photo"}
-                    className="w-full h-56 object-cover rounded"
+                    className="h-56 w-full rounded-lg object-cover"
                   />
                 )}
 
@@ -126,7 +134,7 @@ export default async function MediaPage({
                 href={m.kind === "youtube" ? `https://youtu.be/${m.url}` : m.url}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-block text-sm text-blue-700 underline break-all"
+                className="mt-3 inline-block break-all text-sm font-medium text-[var(--mz-primary-blue)] underline"
               >
                 Open
               </a>

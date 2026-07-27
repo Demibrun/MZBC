@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 /**
@@ -15,6 +16,7 @@ import { useEffect, useState } from "react";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
   // Lock body scroll when drawer open
   useEffect(() => {
@@ -26,26 +28,31 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-black/10">
-        <div className="mx-auto max-w-7xl px-4 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-50 border-b border-[var(--mz-border)] bg-white/92 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/85">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           {/* Brand */}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex min-w-0 items-center gap-3">
             <Image
               src="/logo.jpg"
               alt="MZBC"
               width={36}
               height={36}
               priority
-              className="h-9 w-9 rounded-full ring-2 ring-[var(--mz-primary-blue)]/30"
+              className="h-10 w-10 rounded-full object-cover ring-2 ring-[var(--mz-primary-blue)]/20"
             />
-            <span className="font-semibold text-[var(--mz-deep-blue)]">
-              Mount Zion Bible Church
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-bold leading-tight text-[var(--mz-deep-blue)] md:text-base">
+                Mount Zion Bible Church
+              </span>
+              <span className="hidden text-xs font-medium text-[var(--mz-dark)]/55 sm:block">
+                Prayer Ministry International
+              </span>
             </span>
           </Link>
 
           {/* Desktop (lg+) */}
-          <nav className="hidden lg:flex items-center gap-6 text-[var(--mz-dark)]">
-            <NavLinks onClick={() => {}} />
+          <nav className="hidden items-center gap-1 text-[var(--mz-dark)] lg:flex">
+            <NavLinks activePath={pathname} onClick={() => {}} />
             {/* Admin link removed from public header */}
           </nav>
 
@@ -53,7 +60,7 @@ export default function Header() {
           <button
             aria-label={open ? "Close menu" : "Open menu"}
             onClick={() => setOpen((v) => !v)}
-            className="lg:hidden relative h-10 w-10 grid place-items-center rounded-lg border border-black/10"
+            className="relative grid h-10 w-10 place-items-center rounded-lg border border-[var(--mz-border)] bg-white lg:hidden"
           >
             {/* Animated burger -> X */}
             <span className="sr-only">Toggle menu</span>
@@ -78,7 +85,7 @@ export default function Header() {
 
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 lg:hidden ${
+        className={`fixed inset-0 z-40 bg-[var(--mz-deep-blue)]/45 transition-opacity duration-300 lg:hidden ${
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={() => setOpen(false)}
@@ -88,7 +95,7 @@ export default function Header() {
       <aside
         className={`fixed right-0 top-0 z-50 h-full w-[86%] max-w-[360px] bg-white
           transform transition-transform duration-300 lg:hidden
-          border-l border-black/10
+          border-l border-[var(--mz-border)]
           ${open ? "translate-x-0" : "translate-x-full"}`}
         style={{
           // Gold/Blue interchangeable accent: ring + outer glow
@@ -96,11 +103,11 @@ export default function Header() {
             "0 0 0 2px var(--mz-gold), 0 10px 30px rgba(30,109,227,.25)",
         }}
       >
-        <div className="flex items-center justify-between px-4 h-16 border-b border-black/10">
-          <span className="font-semibold text-[var(--mz-deep-blue)]">MZPMI</span>
+        <div className="flex h-16 items-center justify-between border-b border-[var(--mz-border)] px-4">
+          <span className="font-semibold text-[var(--mz-deep-blue)]">MZBC</span>
           <button
             onClick={() => setOpen(false)}
-            className="rounded-md p-2 hover:bg-black/5"
+            className="relative rounded-md p-2 text-transparent hover:bg-black/5 after:text-[var(--mz-deep-blue)] after:content-['x']"
             aria-label="Close menu"
           >
             ✕
@@ -159,7 +166,13 @@ export default function Header() {
 
 /* ----------------- helpers ----------------- */
 
-function NavLinks({ onClick }: { onClick: () => void }) {
+function NavLinks({
+  activePath,
+  onClick,
+}: {
+  activePath: string;
+  onClick: () => void;
+}) {
   const items = [
     ["Home", "/"],
     ["Prayer Capsule", "/prayer-capsule"],
@@ -178,7 +191,11 @@ function NavLinks({ onClick }: { onClick: () => void }) {
           key={href}
           href={href}
           onClick={onClick}
-          className="text-[var(--mz-deep-blue)] hover:text-[var(--mz-primary-blue)] transition"
+          className={`rounded-md px-2.5 py-2 text-sm font-medium transition ${
+            activePath === href
+              ? "bg-[var(--mz-primary-blue)]/10 text-[var(--mz-primary-blue)]"
+              : "text-[var(--mz-deep-blue)] hover:bg-slate-100 hover:text-[var(--mz-primary-blue)]"
+          }`}
         >
           {label}
         </Link>

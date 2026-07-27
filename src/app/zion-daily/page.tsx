@@ -118,26 +118,25 @@ export default function ZionDailyPage() {
     open?.key === "sundaySchool" && !!activeEntry?.mediaKind && !!activeEntry?.mediaUrl;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10">
+    <main className="section">
       <header className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--mz-primary-blue)] drop-shadow">
-          Zion Daily
-        </h1>
-        <p className="mt-1 text-[var(--mz-dark)]/70">Tap any card to read or pick a previous day.</p>
+        <p className="section-kicker">Daily nourishment</p>
+        <h1 className="h1 mt-2">Zion Daily</h1>
+        <p className="section-subtitle">Tap any card to read or pick a previous day.</p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {sections.map((sec) => (
           <div
             key={sec.key}
-            className="group rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md shadow-[0_20px_40px_rgba(0,0,0,.15)]"
+            className="card"
           >
             <div className="p-5">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-bold text-[var(--mz-deep-blue)]">{sec.title}</h2>
                 <button
                   onClick={() => setOpen({ key: sec.key, index: 0 })}
-                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-white"
+                  className="btn-primary px-3 py-1.5"
                   style={{ backgroundColor: "var(--mz-primary-blue)" }}
                 >
                   Open
@@ -151,7 +150,7 @@ export default function ZionDailyPage() {
               <div className="mt-4">
                 <label className="text-xs text-[var(--mz-dark)]/60">Previous entries</label>
                 <select
-                  className="mt-1 w-full rounded-lg border border-black/10 bg-white px-3 py-2"
+                  className="input-polish mt-1 w-full"
                   onChange={(e) => {
                     const idx = Number(e.target.value);
                     if (!Number.isNaN(idx)) setOpen({ key: sec.key, index: idx });
@@ -174,13 +173,13 @@ export default function ZionDailyPage() {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[var(--mz-deep-blue)]/55 p-4 backdrop-blur-sm">
           <div
-            className={`w-[94vw] max-h-[88vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-black/10 ${
+            className={`w-full max-h-[88vh] overflow-y-auto rounded-lg bg-white shadow-2xl border border-[var(--mz-border)] ${
               isSundayMedia ? "max-w-5xl" : "max-w-2xl"
             }`}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-black/10">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--mz-border)] px-5 py-4">
               <h3 className="text-lg font-semibold text-[var(--mz-deep-blue)]">
                 {activeEntry?.title ?? "Details"}
               </h3>
@@ -190,14 +189,14 @@ export default function ZionDailyPage() {
                     href={mediaHref(activeEntry.mediaKind, activeEntry.mediaUrl)}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-black/5"
+                    className="rounded-md border border-[var(--mz-border)] px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
                   >
                     Open media
                   </a>
                 ) : null}
                 <button
                   onClick={() => setOpen(null)}
-                  className="rounded-md p-2 hover:bg-black/5"
+                  className="relative rounded-md px-3 py-2 text-sm font-semibold text-transparent hover:bg-slate-50 after:text-[var(--mz-deep-blue)] after:content-['x']"
                   aria-label="Close"
                 >
                 ✕
