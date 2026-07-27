@@ -603,6 +603,9 @@ async function delPp(id: string) {
   const [pastors, setPastors] = useState<Pastor[]>([]);
   const [pName, setPName] = useState("");
   const [pPhoto, setPPhoto] = useState("");
+  const [pPhotoFile, setPPhotoFile] = useState<File | null>(null);
+  const [pPhotoPreview, setPPhotoPreview] = useState("");
+  const [pUploadProgress, setPUploadProgress] = useState<UploadProgress | null>(null);
   const [pOrder, setPOrder] = useState<number | "">("");
 
   async function loadPastors() {
@@ -618,20 +621,44 @@ async function delPp(id: string) {
   useEffect(() => {
     if (authed && tab === "Pastors") loadPastors();
   }, [authed, tab]);
+  useEffect(() => {
+    if (!pPhotoFile) {
+      setPPhotoPreview("");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(pPhotoFile);
+    setPPhotoPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [pPhotoFile]);
   async function addPastor() {
     if (!pName) return alert("Name required");
     setBusy(true);
     try {
+      let photoUrl = pPhoto;
+      if (pPhotoFile) {
+        const uploaded = await uploadAdminMediaFile({
+          file: pPhotoFile,
+          kind: "photo",
+          title: pName,
+          onProgress: setPUploadProgress,
+        });
+        photoUrl = uploaded.thumbnail || uploaded.url;
+      }
+
       await api("/api/workforce/pastors", {
         method: "POST",
         body: JSON.stringify({
           name: pName,
-          photoUrl: pPhoto,
+          photoUrl,
           order: pOrder || 0,
         }),
       });
       setPName("");
       setPPhoto("");
+      setPPhotoFile(null);
+      setPPhotoPreview("");
+      setPUploadProgress(null);
       setPOrder("");
       loadPastors();
       done("Added");
@@ -1141,12 +1168,25 @@ async function delPp(id: string) {
                   className="mt-1 w-full rounded border px-3 py-2"
                 />
               </label>
-              <label className="block">
-                <span className="text-sm font-medium">Photo URL</span>
+              <label className="block md:col-span-2">
+                <span className="text-sm font-medium">Upload Photo</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    setPPhotoFile(e.target.files?.[0] || null);
+                    setPUploadProgress(null);
+                  }}
+                  className="mt-1 w-full rounded border px-3 py-2"
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="text-sm font-medium">Photo URL (optional)</span>
                 <input
                   value={pPhoto}
                   onChange={(e) => setPPhoto(e.target.value)}
                   className="mt-1 w-full rounded border px-3 py-2"
+                  placeholder="Paste a photo link if not uploading from device"
                 />
               </label>
               <label className="block">
@@ -1159,6 +1199,28 @@ async function delPp(id: string) {
                 />
               </label>
             </div>
+            {pPhotoFile && (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <p className="text-sm text-gray-600">
+                  Selected: {pPhotoFile.name} ({fileSizeLabel(pPhotoFile.size)}) - images are compressed before upload.
+                </p>
+                {pPhotoPreview && (
+                  <img
+                    src={pPhotoPreview}
+                    alt="Pastor preview"
+                    className="h-16 w-16 rounded object-cover border"
+                  />
+                )}
+              </div>
+            )}
+            {!pPhotoFile && pPhoto && (
+              <img
+                src={pPhoto}
+                alt="Pastor preview"
+                className="mt-3 h-20 w-20 rounded object-cover border"
+              />
+            )}
+            <UploadProgressBar progress={pUploadProgress} />
             <button
               disabled={busy}
               onClick={addPastor}
